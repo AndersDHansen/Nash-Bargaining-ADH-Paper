@@ -166,13 +166,4 @@ Thesis-Repository/
 └── README.md
 ```
 
-## Contributing
 
-1. Create a feature branch: `git checkout -b feature/my-change`
-2. Make your changes inside `Code/`
-3. Test that `main_forecast.py` still runs without errors
-4. Commit with a descriptive message and open a pull request
-
-## References
-
-- Gousis, T., Kabouris, J., & Kanellos, F. D. (2025). "Enhancing the viability and bankability of hybrid RES-BESS systems with corporate power purchase agreements and electricity market participation." *Energy Economics*, 141, 108024.

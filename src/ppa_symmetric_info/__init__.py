@@ -1,1 +1,1 @@
-print('hello world')
+print('Hello world from the __init__.py in the src/')

@@ -1,6 +1,6 @@
 # Nash Bargaining for Power Purchase Agreements
 
-Stochastic optimisation framework for negotiating Corporate Power Purchase Agreements (CPPAs) between a renewable-energy generator and a corporate load, using Nash bargaining theory, CVaR-based risk management, and Monte Carlo scenario analysis.
+Nash Bargaining optimisation framework for negotiating Power Purchase Agreements (CPPAs) between a renewable-energy generator and a load, using Nash bargaining theory, CVaR, and Monte Carlo scenario analysis.
 
 ## Purpose
 

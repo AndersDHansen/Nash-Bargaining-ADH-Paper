@@ -16,13 +16,5 @@ dependencies = [
     "tqdm>=4.67.3",
 ]
 
-# Install as editable
 [tool.uv]
-package = true
-
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
-
-[tool.hatch.build.targets.wheel]
-packages = ["src/ppa_symmetric_info"]
+package = false

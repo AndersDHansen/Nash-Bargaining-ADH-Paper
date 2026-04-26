@@ -123,9 +123,6 @@ Run as many times as needed for different contract configurations or sensitivity
 |---|---|
 | `Code/config_scenarios.py` | Parameters for scenario generation (number of simulations, horizons, data paths) |
 | `Code/config_optimization.py` | Parameters for optimization and sensitivity analysis (risk levels, negotiation power, contract types) |
-| `Code/.env.example` | Copy to `.env` and set `DROPBOX_FIGURES_DIR` to enable Overleaf figure export |
-
-> **Note:** `.env` is gitignored and will not be committed. Copy `.env.example` to `.env` and fill in your local paths before running.
 
 ## Folder Structure
 

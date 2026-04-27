@@ -1,0 +1,30 @@
+# Risk aversion [0 = risk-neutral, 1 = full CVaR]
+A_L: 0.5
+A_G: 0.5
+
+# Negotiation power (tau_G = 1 - tau_L, derived at runtime)
+tau_L: 0.5
+
+# CVaR confidence level
+alpha: 0.95
+
+# Discount rates
+D_G: 0.0
+D_L: 0.0
+
+# Time horizons and scenarios (must match generated scenarios)
+scenario_time_horizon: 20
+opt_time_horizon: 20
+num_scenarios: 500
+
+# Flags
+monte_price: false
+discount: true
+sensitivity: false
+
+# Contract / system bounds
+generator_contract_capacity: 30  # MW
+retail_price: 0.0                # EUR/MWh
+strikeprice_min: 0.040           # EUR/MWh
+strikeprice_max: 0.120           # EUR/MWh (may be overridden by load data)
+gamma_max: 1.0

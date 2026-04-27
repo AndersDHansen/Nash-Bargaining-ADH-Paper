@@ -1,0 +1,7 @@
+defaults:
+  - scenarios: default
+  - optimization: default
+  - contract: baseload
+  - sensitivity: default
+  - paths: default
+  - _self_

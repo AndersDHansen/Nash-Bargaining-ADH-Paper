@@ -580,10 +580,6 @@ class Barter_Set:
                     plt.scatter(UG_High_Mopt, UL_High_Mopt, color='green', marker='*', s=150, label=f'V2 M* = ({M_SU/8760*1e3:.2f} MWh)')
 
 
-                utility = [self.results.utility_G - self.data.Zeta_G, self.results.utility_L - self.data.Zeta_L]
-                self.plot_barter_curve( MSR_point, MSU_point, utility)
-
-
                 plt.scatter(self.results.utility_G-self.data.Zeta_G, self.results.utility_L-self.data.Zeta_L, color='red', marker='o', s=150, label='Optimization Result (G,L)')
 
                 for pos in arrow_positions:

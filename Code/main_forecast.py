@@ -15,7 +15,7 @@ from sensitivity_analysis import (run_capture_price_analysis, run_no_contract_bo
 from contract_negotiation import ContractNegotiation
 from utils import ForecastProvider
 from config_optimization import (
-    DROPBOX_FIGURES_DIR, PLOTS_FOLDER, RESULTS_FOLDER,
+    PLOTS_FOLDER, RESULTS_FOLDER,
     A_L as _A_L, A_G as _A_G, SCENARIO_TIME_HORIZON, OPT_TIME_HORIZON,
     NUM_SCENARIOS, D_G, D_L, MONTE_PRICE, BARTER, SENSITIVITY, DISCOUNT,
     TAU_L as _TAU_L, CONTRACT_TYPE, SELECTED_ANALYSES,
@@ -27,7 +27,6 @@ import timeit
 
 
 # Paths from config
-DROPBOX_DIR = DROPBOX_FIGURES_DIR
 plots_folder = PLOTS_FOLDER
 results_folder = RESULTS_FOLDER
 

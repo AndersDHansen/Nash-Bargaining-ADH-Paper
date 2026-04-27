@@ -11,8 +11,6 @@ import seaborn as sns
 from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import KMeans
 import os 
-from config_optimization import DROPBOX_FIGURES_DIR
-DROPBOX_DIR = DROPBOX_FIGURES_DIR
 plots_dir = os.path.join(os.getcwd(), 'Plots')
 os.makedirs(plots_dir, exist_ok=True)
 

@@ -12,11 +12,10 @@ from visualization import Plotting_Class
 from contract_negotiation import ContractNegotiation
 from dataloader import load_data, InputData
 from utils import ForecastProvider
-from config_optimization import DROPBOX_FIGURES_DIR, PLOTS_FOLDER, RESULTS_FOLDER
+from config_optimization import PLOTS_FOLDER, RESULTS_FOLDER
 import json
 
 
-DROPBOX_DIR = DROPBOX_FIGURES_DIR
 plots_folder = PLOTS_FOLDER
 csv_folder = RESULTS_FOLDER
 
@@ -369,8 +368,12 @@ def main():
     presentation_bias_name = f"presentation_bias_sensitivity_{contract_type}_{opt_time_horizon}_{num_scenarios}.png"
     presentation_risk_name = f"presentation_risk_sensitivity_{contract_type}_{opt_time_horizon}_{num_scenarios}.png"
 
-    plotter._plot_sensitivity_results_heatmap('price_bias',filename=os.path.join(plots_folder, presentation_bias_name))
-    plotter._plot_sensitivity_results_heatmap('risk',filename=os.path.join(plots_folder, presentation_risk_name))
+    pb_df = sensitivity_results.get('price_bias_sensitivity')
+    if isinstance(pb_df, pd.DataFrame) and not pb_df.empty:
+        plotter._plot_sensitivity_results_heatmap('price_bias', filename=os.path.join(plots_folder, presentation_bias_name))
+    rs_df = sensitivity_results.get('risk_sensitivity')
+    if isinstance(rs_df, pd.DataFrame) and not rs_df.empty:
+        plotter._plot_sensitivity_results_heatmap('risk', filename=os.path.join(plots_folder, presentation_risk_name))
 
 
     bias_risk_els_df = sensitivity_results.get('bias_vs_risk_elasticity_sensitivity')
@@ -384,37 +387,21 @@ def main():
                     filename=os.path.join(plots_folder, f'{bias_risk_elasticity_file}_AL_fix_{elasticity_fixed_value}'),
                     fix='A_L')
 
-        plotter._plot_elasticity_tornado_vs_risk(bias = True, 
-                    fixed_A_G_values=None,
-                    fixed_A_L_values=[elasticity_fixed_value],
-                    metrics=['StrikePrice', 'ContractAmount'],
-                    filename=os.path.join(DROPBOX_DIR, f'{bias_risk_elasticity_file}_AL_fix_{elasticity_fixed_value}'),
-                    fix='A_L')
-        
-        plotter._plot_elasticity_tornado_vs_risk(bias = True, 
+        plotter._plot_elasticity_tornado_vs_risk(bias = True,
                     fixed_A_G_values=[elasticity_fixed_value],
                     fixed_A_L_values=None,
                     metrics=['StrikePrice', 'ContractAmount'],
                     filename=os.path.join(plots_folder, f'{bias_risk_elasticity_file}_AG_fix_{elasticity_fixed_value}'),
                     fix='A_G')
         
-        plotter._plot_elasticity_tornado_vs_risk(bias = True, 
-                    fixed_A_G_values=[elasticity_fixed_value],
-                    fixed_A_L_values=None,
-                    metrics=['StrikePrice', 'ContractAmount'],
-                    filename=os.path.join(DROPBOX_DIR, f'{bias_risk_elasticity_file}_AG_fix_{elasticity_fixed_value}'),
-                    fix='A_G')
-        
         
         
         #plotter._plot_bias_ris
-        #plotter._plot_bias_risk_elasticity(filename=os.path.join(DROPBOX_DIR, bias_risk_elasticity_file))
 
      # Optional: negotiation power vs risk pairs plot if data exists
     #nego_vs_risk_df = sensitivity_results.get('negotiation_vs_risk_sensitivity')
     #if isinstance(nego_vs_risk_df, pd.DataFrame) and not nego_vs_risk_df.empty:
     #    plotter._plot_negotiation_vs_risk(filename=os.path.join(plots_folder, negotiation_vs_risk_file))
-   #     plotter._plot_negotiation_vs_risk(filename=os.path.join(DROPBOX_DIR, negotiation_vs_risk_file))
 
     # Optional: elasticity-vs-risk tornado plots (per fixed A_G)
     
@@ -432,17 +419,7 @@ def main():
                         filename=os.path.join(plots_folder, f'{tornado_file}_fix_AG'),
                         fix='A_G'
                     )
-                    # Save to Dropbox figures
-                    plotter._plot_elasticity_tornado_vs_risk(
-                        bias=False,
-                        fixed_A_G_values=[elasticity_fixed_value],
-                        fixed_A_L_values=None,
-                        metrics=['StrikePrice', 'ContractAmount'],
-                        filename=os.path.join(plots_folder, f'{tornado_file}_fix_AG'),
-                        fix='A_G'
-                    )
                 elif mode == 'A_L':
-                    # Save to local plots
                     plotter._plot_elasticity_tornado_vs_risk(
                         bias=False,
                         fixed_A_G_values=None,
@@ -451,91 +428,60 @@ def main():
                         filename=os.path.join(plots_folder, f'{tornado_file}_fix_AL'),
                         fix='A_L'
                     )
-                    # Save to Dropbox figures
-                    plotter._plot_elasticity_tornado_vs_risk(
-                        bias=False,
-                        fixed_A_G_values=None,
-                        fixed_A_L_values=[elasticity_fixed_value],
-                        metrics=['StrikePrice', 'ContractAmount'],
-                        filename=os.path.join(DROPBOX_DIR, f'{tornado_file}_fix_AL'),
-                        fix='A_L'
-                    )
     """
     """ 
     rs_df = sensitivity_results.get('risk_sensitivity')
     if isinstance(rs_df, pd.DataFrame) and not rs_df.empty:
         plotter._plot_disagreement_points(filename=os.path.join(plots_folder, disagreement_points_file))
-        plotter._plot_disagreement_points(filename=os.path.join(DROPBOX_DIR, disagreement_points_file))
     
     re_df = sensitivity_results.get('risk_earnings_sensitivity')
     if isinstance(re_df, pd.DataFrame) and not re_df.empty:
         plotter._risk_plot_earnings_boxplot( fixed_A_G,  A_L_to_plot=params['A_L_values'].tolist(),filename=os.path.join(plots_folder, earnings_boxplot_file))
-        plotter._risk_plot_earnings_boxplot( fixed_A_G,  A_L_to_plot=params['A_L_values'].tolist(),filename=os.path.join(DROPBOX_DIR, earnings_boxplot_file))
 
     p_mean_df = sensitivity_results.get('price_sensitivity_mean')
     prod_mean_df = sensitivity_results.get('production_sensitivity_mean')
     if isinstance(p_mean_df, pd.DataFrame) and not p_mean_df.empty and isinstance(prod_mean_df, pd.DataFrame) and not prod_mean_df.empty:
         plotter._plot_elasticity_tornado(metrics=['StrikePrice','ContractAmount'],bias=False,filename=os.path.join(plots_folder, tornado_file))
-        plotter._plot_elasticity_tornado(metrics=['StrikePrice','ContractAmount'],bias=False,filename=os.path.join(DROPBOX_DIR, tornado_file))
 
     #plotter._plot_3D_sensitivity_results(sensitivity_type='risk', filename=os.path.join(plots_folder, risk_plot_3D_file))
-    #plotter._plot_3D_sensitivity_results(sensitivity_type='risk', filename=os.path.join(DROPBOX_DIR, risk_plot_3D_file))
 
     nego_earn_df = sensitivity_results.get('negotiation_earnings_sensitivity')
     if isinstance(nego_earn_df, pd.DataFrame) and not nego_earn_df.empty:
         if isinstance(nego_earn_df, pd.DataFrame) and not nego_earn_df.empty:
             plotter._nego_plot_earnings_boxplot(filename=os.path.join(plots_folder, negotation_earnings_file))
-            plotter._nego_plot_earnings_boxplot(filename=os.path.join(DROPBOX_DIR, negotation_earnings_file))
     #plotter._plot_parameter_sensitivity_spider(bias=False,filename=os.path.join(plots_folder, spider_file))
-    # Risk sensitivity plots - save to both locations
+    # Risk sensitivity plots
     if sensitivity_results.get('risk_sensitivity') is not None:
         plotter._plot_sensitivity_results_heatmap('risk',filename=os.path.join(plots_folder, risk_file))
-        plotter._plot_sensitivity_results_heatmap('risk',filename=os.path.join(DROPBOX_DIR, risk_file))
-            
-    # Earnings distribution plots - save to both locations
-    #plotter._plot_earnings_histograms(fixed_A_G, A_L_to_plot=np.array([0.1,0.5,0.9]).tolist(), filename=os.path.join(plots_folder, earnings_file))
-    #plotter._plot_earnings_histograms(fixed_A_G, A_L_to_plot=np.array([0.1,0.5,0.9]).tolist(), filename=os.path.join(DROPBOX_DIR, earnings_file))
 
-    #Threat Point 
+    #plotter._plot_earnings_histograms(fixed_A_G, A_L_to_plot=np.array([0.1,0.5,0.9]).tolist(), filename=os.path.join(plots_folder, earnings_file))
+
     #plotter._plot_expected_versus_threatpoint(fixed_A_G,A_L_to_plot=np.array([0.1,0.5,0.9]).tolist(),filename=os.path.join(plots_folder, 'threat_point.png'))
-    #plotter._plot_expected_versus_threatpoint(fixed_A_G,A_L_to_plot=np.array([0.1,0.5,0.9]).tolist(),filename=os.path.join(DROPBOX_DIR, 'threat_point.png'))
 
     #Radar Chart 
 
-    # Price bias sensitivity plots - save to both locations
-    # price_bias or production_bias 
     price_bias_df = sensitivity_results.get('price_bias_sensitivity')
     if isinstance(price_bias_df, pd.DataFrame) and not price_bias_df.empty:
         plotter._plot_sensitivity_results_heatmap('price_bias',filename=os.path.join(plots_folder, price_bias_file))
-        plotter._plot_sensitivity_results_heatmap('price_bias',filename=os.path.join(DROPBOX_DIR, price_bias_file))
     prod_bias_df = sensitivity_results.get('production_bias_sensitivity')
     if isinstance(prod_bias_df, pd.DataFrame) and not prod_bias_df.empty:
         plotter._plot_sensitivity_results_heatmap('production_bias',filename=os.path.join(plots_folder, production_bias_file))
-        plotter._plot_sensitivity_results_heatmap('production_bias',filename=os.path.join(DROPBOX_DIR, production_bias_file))
 
 
     # Boundary plots (only if boundary results are available)
     if boundary_results_price:
         plotter._plot_no_contract_boundaries(sensitivity_type='price', filename=os.path.join(plots_folder, boundary_file_price))
-        plotter._plot_no_contract_boundaries(sensitivity_type='price',filename=os.path.join(DROPBOX_DIR, boundary_file_price))
         plotter._plot_no_contract_boundaries_all(sensitivity_type='price', filename=os.path.join(plots_folder, boundary_file_all_price))
-        plotter._plot_no_contract_boundaries_all(sensitivity_type='price', filename=os.path.join(DROPBOX_DIR, boundary_file_all_price))
 
     # Nash product plots (only if risk results are available)
     rs_df = sensitivity_results.get('risk_sensitivity')
     if isinstance(rs_df, pd.DataFrame) and not rs_df.empty:
         plotter._plot_nash_product_evolution(filename=os.path.join(plots_folder, nash_product_file))
-        plotter._plot_nash_product_evolution(filename=os.path.join(DROPBOX_DIR, nash_product_file))
 
 
-    # Production bias sensitivity plots - save to both locations
     #plotter._plot_sensitivity_results_heatmap('production_bias',filename=os.path.join(plots_folder, production_bias_file))
-    #plotter._plot_sensitivity_results_heatmap('production_bias',filename=os.path.join(DROPBOX_DIR, production_bias_file))
 
-
-    # Plot negotiation sensitivity - save to both locations
     #plotter._plot_sensitivity_results_line('negotiation',filename=os.path.join(plots_folder, negotiation_sensitivity_file))
-    #plotter._plot_sensitivity_results_line('negotiation',filename=os.path.join(DROPBOX_DIR, negotiation_sensitivity_file))
 
    
     """
@@ -560,14 +506,11 @@ def main():
 
 
     #plotter._plot_no_contract_boundaries(sensitivity_type='production', filename=os.path.join(plots_folder, boundary_file_production))
-    #plotter._plot_no_contract_boundaries(sensitivity_type='production',filename=os.path.join(DROPBOX_DIR, boundary_file_production))
     #plotter._plot_no_contract_boundaries_all(sensitivity_type='production', filename=os.path.join(plots_folder, boundary_file_all_production))
-    #plotter._plot_no_contract_boundaries_all(sensitivity_type='production',filename=os.path.join(DROPBOX_DIR, boundary_file_all_production))
     #print("All plots generated successfully!")
 
     #plotter._plot_summary_dashboard(filename='summary_dashboard.png')
     #plotter._plot_utility_space(filename=os.path.join(plots_folder, utility_space_file))
-    #plotter._plot_utility_space(filename=os.path.join(DROPBOX_DIR, utility_space_file))
 
 if __name__ == "__main__":
     main()

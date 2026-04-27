@@ -1,29 +1,8 @@
 """Configuration for optimization and sensitivity analysis (main_forecast.py)."""
 
 import os
-import warnings
 
 import numpy as np
-
-# ── Load .env file if present ──
-_env_path = os.path.join(os.path.dirname(__file__), ".env")
-if os.path.isfile(_env_path):
-    with open(_env_path) as _f:
-        for _line in _f:
-            _line = _line.strip()
-            if _line and not _line.startswith("#") and "=" in _line:
-                _key, _val = _line.split("=", 1)
-                os.environ.setdefault(_key.strip(), _val.strip())
-
-# ── Dropbox / Overleaf export path ──
-# Loaded from .env if present; falls back to empty string with a warning.
-DROPBOX_FIGURES_DIR = os.getenv("DROPBOX_FIGURES_DIR", "")
-if not DROPBOX_FIGURES_DIR:
-    warnings.warn(
-        "DROPBOX_FIGURES_DIR not set. Copy .env.example to .env and fill in your path. "
-        "Figures will not be exported to Dropbox.",
-        stacklevel=1,
-    )
 
 # ── Output paths (relative to Code/) ──
 PLOTS_FOLDER = os.path.join(os.path.dirname(__file__), "Plots")
@@ -41,7 +20,7 @@ D_L = 0.00               # Load discount rate
 
 # ── Boolean flags ──
 MONTE_PRICE = False       # Use Monte Carlo price scenarios
-BARTER = True             # McCormick relaxation
+BARTER = True            # McCormick relaxation
 SENSITIVITY = False       # Run sensitivity analyses
 DISCOUNT = True           # Include discounting in objective
 

@@ -15,6 +15,14 @@ class Runner:
             config.sensitivity,
         )
 
+    def run(self):
+        log.info("Starting full workflow")
+        self.preprocess_data()  # generate scenario CSVs from raw wind/solar/price data
+        self.load_data()  # load config params + read those CSVs into InputData
+        self.solve_nbs_model()
+        self.export_results()
+        self.visualize_results()
+
     def preprocess_data(self):
         log.info("START - Scenario generation and reduction")
 
@@ -50,11 +58,3 @@ class Runner:
         log.info("START - Generating plots | output_dir=%s", self.data.path_plots)
         # TODO: Plotting_Class
         log.info("END - Generating plots")
-
-    def run(self):
-        log.info("Starting full workflow")
-        self.preprocess_data()  # generate scenario CSVs from raw wind/solar/price data
-        self.load_data()  # load config params + read those CSVs into InputData
-        self.solve_nbs_model()
-        self.export_results()
-        self.visualize_results()

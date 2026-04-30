@@ -14,9 +14,19 @@ dependencies = [
     "scikit-learn>=1.8.0",
     "seaborn>=0.13.2",
     "tqdm>=4.67.3",
+    "pytest>=9.0.2",
+]
+
+[dependency-groups]
+dev = [
+    "coverage==7.6.9",
+    "invoke==2.2.0",
+    "pre-commit==4.5.1",
     "mkdocs>=1.6.1,<2.0",
     "mkdocs-material>=9.5",
     "mkdocstrings[python]>=0.29",
+    "fastapi>=0.135.3",
+    "uvicorn[standard]>=0.44.0",
 ]
 
 [tool.uv]

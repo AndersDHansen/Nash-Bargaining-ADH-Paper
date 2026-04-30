@@ -1,12 +1,18 @@
 from omegaconf import DictConfig, OmegaConf
 import hydra
-from ppa_symmetric_info.runner import Runner
+import logging
+
+from ppa_symmetric_info import Runner
+
+log = logging.getLogger(__name__)
+
 
 @hydra.main(version_base=None, config_path="config", config_name="config")
-def main(cfg:DictConfig):
+def main(cfg: DictConfig):
+    log.info("Starting the runner")
     runner = Runner(cfg)
-    print(runner.config)
-    print("Hello from nash-bargaining-adh-paper!")
+    runner.run()
+
 
 if __name__ == "__main__":
     main()

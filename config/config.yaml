@@ -1,6 +1,6 @@
 defaults:
   - scenarios: default
-  - optimization: default
+  - opt_params: default
   - contract: baseload
   - sensitivity: default
   - paths: default

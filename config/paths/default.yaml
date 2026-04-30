@@ -1,15 +1,14 @@
-paths:
-  root: "${hydra:runtime.cwd}"
-  logs: "${paths.root}/logs"
-  data:
-    dir: "${paths.root}/data"
-    wind: "${paths.data.dir}/Wind/combined_wind_data.csv"
-    solar: "${paths.data.dir}/Solar/combined_solar_data.csv"
-    price: "${paths.data.dir}/EnergyReport.csv"
-    consumption: "${paths.data.dir}/ConsumptionIndustry.csv"
-
-  output:
-    scenarios: "${paths.root}/simulations"
-    run_dir: "${hydra:runtime.output_dir}"
-    plots: "${hydra:runtime.output_dir}/plots"
-    results: "${hydra:runtime.output_dir}/results"
+# @package paths
+root: "${hydra:runtime.cwd}"
+logs: "${paths.root}/logs"
+data:
+  dir: "${paths.root}/data"
+  wind: "${paths.data.dir}/Wind/combined_wind_data.csv"
+  solar: "${paths.data.dir}/Solar/combined_solar_data.csv"
+  price: "${paths.data.dir}/EnergyReport.csv"
+  consumption: "${paths.data.dir}/ConsumptionIndustry.csv"
+output:
+  scenarios: "${paths.root}/simulations"
+  run_dir: "${hydra:runtime.output_dir}"
+  plots: "${hydra:runtime.output_dir}/plots"
+  results: "${hydra:runtime.output_dir}/results"

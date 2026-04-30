@@ -1,6 +1,0 @@
-years: 20
-num_scenarios: 100000
-monte_price: false
-start_time: "2025-01-01"
-seed: 42
-capacity_mw: 30

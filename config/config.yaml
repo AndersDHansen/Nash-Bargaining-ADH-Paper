@@ -1,7 +1,12 @@
 defaults:
-  - scenarios: default
-  - opt_params: default
-  - contract: baseload
-  - sensitivity: default
   - paths: default
+  - contract: baseload
+  - opt_params: default
+  - sensitivity: default
   - _self_
+
+# Simunlation params
+monte_price: False
+barter : True
+sensitivity : True
+discount  : True

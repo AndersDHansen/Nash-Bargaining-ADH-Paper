@@ -11,7 +11,14 @@ log = logging.getLogger(__name__)
 def main(cfg: DictConfig):
     log.info("Starting the runner")
     runner = Runner(cfg)
-    runner.run()
+
+    runner.preprocess_data()
+    # runner.load_data()
+    runner.solve_nbs_model()
+    # runner.export_results()
+    # runner.visualize_results()
+
+    # runner.run()
 
 
 if __name__ == "__main__":

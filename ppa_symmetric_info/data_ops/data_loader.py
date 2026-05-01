@@ -1,88 +1,94 @@
+import numpy as np
+import pandas as pd
 from dataclasses import dataclass
-from omegaconf import DictConfig
 from pathlib import Path
-import logging
 
-log = logging.getLogger(__name__)
+from omegaconf import DictConfig
+
+from ppa_symmetric_info.utils import get_logger
+
+log = get_logger(__name__)
 
 
 @dataclass
 class DataLoader:
-    """Reads config and stores all parameters as typed attributes.
-
-    Separates data/preprocessing params (cfg.data) from optimization params
-    (cfg.opt_params) so each config group has a single clear purpose.
-    """
-
     config: DictConfig
 
     def __post_init__(self):
-        log.info("DataLoader initialized")
-        self._load()
+        self._load_config()
+        self._load_scenarios()
+        log.info(
+            "Data loaded: %d scenarios, %d years, contract=%s, barter=%s",
+            self.num_scenarios, self.years, self.contract_type, self.barter,
+        )
 
-    def _load(self):
+    def _load_config(self):
         cfg = self.config
-        data = cfg.scenario_gen
+        scen_gen = cfg.scenario_gen
         params = cfg.opt_params
-        p = cfg.paths
 
-        # ── Scenario / data params (from config/scenario_gen/default.yaml) ──
-        self.years = data.years
+        # Time / scenario dimensions
+        self.years = scen_gen.years
         self.periods = list(range(self.years))
-        self.num_scenarios_mc = data.num_scenarios_mc
-        self.num_scenarios_opt = data.num_scenarios_reduced
-        self.seed = data.seed
-        self.capacity_mw = data.capacity_mw
-        self.start_time = data.start_time
-        self.monte_price = data.monte_price
+        self.num_scenarios = scen_gen.num_scenarios_reduced
+        self.scenarios = list(range(self.num_scenarios))
+        self.monte_price = scen_gen.monte_price
 
-        # ── Optimization params (from config/opt_params/default.yaml) ──
+        # Risk / negotiation
         self.A_L = params.A_L
         self.A_G = params.A_G
         self.tau_L = params.tau_L
+        self.tau_G = 1.0 - params.tau_L
         self.alpha = params.alpha
         self.D_G = params.D_G
         self.D_L = params.D_L
         self.K_G = params.K_G
         self.K_L = params.K_L
-        self.opt_time_horizon = params.opt_time_horizon
-        self.discount = params.discount
 
-        # ── Contract bounds ──
+        # Contract bounds
         self.generator_contract_capacity = params.generator_contract_capacity
         self.retail_price = params.retail_price
         self.strikeprice_min = params.strikeprice_min
-        self.strikeprice_max = params.strikeprice_max
         self.gamma_max = params.gamma_max
         self.contract_amount_min = 0
         self.contract_amount_max = self.generator_contract_capacity * 8760 * 1e-3  # GWh/year
 
-        # ── Contract type (from config/contract/*.yaml) ──
+        # Run-level flags (top-level in config.yaml, barter via contract/*.yaml)
         self.contract_type = cfg.contract_type
         self.barter = cfg.barter
+        self.discount = cfg.discount
 
-        # ── Sensitivity (from config/sensitivity/default.yaml) ──
-        self.run_sensitivity = cfg.run_sensitivity
-        self.selected_analyses = list(cfg.sensitivity.selected_analyses)
-        self.num_sensitivity = cfg.sensitivity.num_sensitivity
-        self.A_G_values = list(cfg.sensitivity.A_G_values)
-        self.A_L_values = list(cfg.sensitivity.A_L_values)
+        # Paths
+        self.path_scenarios = Path(cfg.paths.processed.dir) / f"scenarios_reduced_{self.num_scenarios}"
+        self.path_results = Path(cfg.paths.output.results)
+        self.path_plots = Path(cfg.paths.output.plots)
 
-        # ── Paths (from config/paths/default.yaml) ──
-        self.path_wind = Path(p.raw.wind)
-        self.path_solar = Path(p.raw.solar)
-        self.path_price = Path(p.raw.price)
-        self.path_consumption = Path(p.raw.consumption)
-        # Scenarios live in a subfolder named by the reduction count, matching DataPreprocessor output.
-        self.path_scenarios = Path(p.processed.dir) / f"scenarios_reduced_{self.num_scenarios_opt}"
-        self.path_plots = Path(p.output.plots)
-        self.path_results = Path(p.output.results)
-        self.path_run_dir = Path(p.output.run_dir)
+    def _load_scenarios(self):
+        years, n = self.years, self.num_scenarios
+        d = self.path_scenarios
 
-        log.info(
-            "Config loaded | scenarios=%d opt, %d MC | horizon=%dy | contract=%s",
-            self.num_scenarios_opt,
-            self.num_scenarios_mc,
-            self.years,
-            self.contract_type,
-        )
+        self.price = self._read_csv(d, "price", years, n)
+        self.production = self._read_csv(d, "production", years, n)
+        self.capture_rate = self._read_csv(d, "capture_rate", years, n)
+        self.load = self._read_csv(d, "load", years, n)
+        self.load_cr = self._read_csv(d, "load_capture_rate", years, n)
+
+        prob_path = d / f"probabilities_scenarios_reduced_{years}y_{n}s.csv"
+        self.prob = pd.read_csv(prob_path)["Probability"].to_numpy()
+
+        # Align all column names to price's columns
+        cols = self.price.columns
+        for df in (self.production, self.capture_rate, self.load, self.load_cr):
+            df.columns = cols
+
+        # strikeprice_max: 1.2x the probability-weighted mean load capture price
+        capture_price_load = self.price * self.load_cr
+        self.strikeprice_max = float((capture_price_load * self.prob).sum(axis=1).mean()) * 1.2
+        log.info("Strike price bounds: %.4f to %.4f", self.strikeprice_min, self.strikeprice_max)
+
+    @staticmethod
+    def _read_csv(directory: Path, kind: str, years: int, num_scenarios: int) -> pd.DataFrame:
+        fname = f"{kind}_scenarios_reduced_{years}y_{num_scenarios}s.csv"
+        df = pd.read_csv(directory / fname, index_col=0)
+        df.index = pd.to_datetime(df.index)
+        return df

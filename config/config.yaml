@@ -1,13 +1,10 @@
 defaults:
-  - paths: default
-  - scenario_gen: default
-  - contract: baseload
-  - opt_params: default
-  - sensitivity: default
-  - _self_
+  - paths: default          # File system paths for raw data, processed outputs, results
+  - scenario_gen: default   # Monte Carlo generation and reduction settings
+  - contract: baseload      # Contract type: baseload or pap
+  - opt_params: default     # Model parameters: risk aversion, negotiation power, bounds
+  - sensitivity: default    # Sensitivity analysis grid
+  - _self_                  
 
-barter: true
-
-# Boolean gate for the sensitivity pipeline.
-# Named 'run_sensitivity' to avoid shadowing the 'sensitivity' config group above.
-run_sensitivity: true
+run_sensitivity: false  # set to true to run sensitivity analyses after the base case
+discount: true          # apply time-value discounting to annual cash flows

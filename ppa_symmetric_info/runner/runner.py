@@ -7,17 +7,28 @@ log = get_logger(__name__)
 
 
 class Runner:
+    """Orchestrates the full modelling pipeline.
+
+    Stages run in order:
+      1. preprocess_data  — generate and reduce Monte Carlo scenarios (skipped if cached)
+      2. load_data        — read scenario CSVs and config into a DataLoader
+      3. solve_nbs_model  — build and solve the Nash Bargaining model with Gurobi
+      4. export_results   — write results to CSV / JSON
+      5. visualize_results — produce plots
+
+    For a single base-case run, call run(). Sensitivity analysis will wrap
+    stages 3-4 in a parameter loop on top of the same DataLoader instance.
+    """
+
     def __init__(self, config):
         self.config = config
         log.info(
-            "Runner initialized | contract_type=%s, run_sensitivity=%s",
+            "Runner initialized: contract=%s, sensitivity=%s",
             config.contract_type,
             config.run_sensitivity,
         )
 
     def run(self):
-        """Execute the full pipeline end-to-end."""
-        log.info("Starting full workflow")
         self.preprocess_data()
         self.load_data()
         self.solve_nbs_model()
@@ -25,37 +36,28 @@ class Runner:
         self.visualize_results()
 
     def preprocess_data(self):
-        """Stage 1+2: generate Monte Carlo scenarios and reduce to representatives."""
-        log.info("START - Scenario generation and reduction")
+        """Generate Monte Carlo scenarios and reduce to representatives.
+
+        Checks for a cached result first and skips generation if already done.
+        """
         DataPreprocessor(self.config)
-        log.info("END - Scenario generation and reduction")
 
     def load_data(self):
-        """Read config params and wire up scenario CSV paths into DataLoader."""
-        log.info(
-            "START - Data loading | opt_scenarios=%d, monte_price=%s",
-            self.config.data.num_scenarios_reduced,
-            self.config.data.monte_price,
-        )
+        """Read scenario CSVs and all config parameters into a DataLoader.
+
+        After this step, self.data holds the scenario matrices and every
+        scalar the model needs. Nothing downstream touches the config directly.
+        """
         self.data = DataLoader(self.config)
-        log.info(
-            "END - Data loading | %d opt scenarios, horizon=%dy",
-            self.data.num_scenarios_opt,
-            self.data.years,
-        )
 
     def solve_nbs_model(self):
-        """Solve the Nash Bargaining problem with Gurobi."""
-        log.info("START - Nash Bargaining Solution")
-        self.model = ContractNegotiation(self.data, self.config)
-        log.info("END - Nash Bargaining Solution")
+        """Build and solve the Nash Bargaining model for the current data."""
+        self.model = ContractNegotiation(self.data)
 
     def export_results(self):
-        log.info("START - Exporting results | output_dir=%s", self.data.path_results)
         # TODO: port save_results_to_csv from Code/main_forecast.py
-        log.info("END - Exporting results")
+        pass
 
     def visualize_results(self):
-        log.info("START - Generating plots | output_dir=%s", self.data.path_plots)
         # TODO: port Plotting_Class from Code/plotting/
-        log.info("END - Generating plots")
+        pass

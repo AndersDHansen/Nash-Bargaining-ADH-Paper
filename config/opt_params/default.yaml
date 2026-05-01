@@ -40,6 +40,3 @@ strikeprice_max: 0.120
 
 # Maximum fraction of production that can be contracted under PAP.
 gamma_max: 1.0
-
-# Apply time-value discounting to annual cash flows.
-discount: true

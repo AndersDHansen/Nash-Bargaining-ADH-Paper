@@ -7,10 +7,9 @@ log = get_logger(__name__)
 
 
 class ContractNegotiation:
-    def __init__(self, data, config):
+    def __init__(self, data):
         log.info("ContractNegotiation initialized")
         self.data = data
-        self.config = config
 
         self.initialize_model_data()
         self.compute_strike_boundaries()

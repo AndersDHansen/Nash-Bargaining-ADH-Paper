@@ -230,7 +230,7 @@ class LoadModel:
         return stats.beta.rvs(a=self.a, b=self.b, loc=self.loc, scale=self.scale, size=(12 * years, sims), random_state=self.rng)
 
 
-def run_scenarios(
+def generate_scenarios(
     *,
     years: int,
     num_scenarios: int,

@@ -37,8 +37,8 @@ def reduce_scenarios(
 ) -> None:
     """K-means reduction: reads MC CSVs from scenarios_dir, writes reduced CSVs to output_dir."""
     log.info(
-        "Reduction: %d MC -> %d representative | mc=%s out=%s",
-        num_scenarios_mc, num_scenarios_reduced, scenarios_dir, output_dir,
+        "Reducing %d Monte Carlo scenarios to %d representatives (from %s)",
+        num_scenarios_mc, num_scenarios_reduced, scenarios_dir,
     )
 
     def _load(kind: str) -> pd.DataFrame:
@@ -69,7 +69,7 @@ def reduce_scenarios(
     CR_df     = CR_df[keep_cols]
     load_df   = load_df[keep_cols]
     LR_df     = LR_df[keep_cols]
-    log.info("Outlier filter: kept %d / %d scenarios", len(keep_cols), n_before)
+    log.info("Outlier filter: kept %d of %d scenarios", len(keep_cols), n_before)
 
     # Build 2-D revenue feature space: generator profit (pi_G) and load cost (pi_L)
     prices = prices_df.values.T   # shape: (scenarios, years)
@@ -82,7 +82,7 @@ def reduce_scenarios(
     pi_L = np.sum(-prices * load * lr, axis=1)
     features_scaled = StandardScaler().fit_transform(np.column_stack([pi_G, pi_L]))
 
-    log.info("K-means: k=%d, seed=%d", num_scenarios_reduced, seed)
+    log.info("Running k-means with k=%d (seed=%d)", num_scenarios_reduced, seed)
     kmeans = KMeans(n_clusters=num_scenarios_reduced, random_state=seed, n_init=10, init="k-means++")
     labels = kmeans.fit_predict(features_scaled)
     centroids = kmeans.cluster_centers_
@@ -104,7 +104,7 @@ def reduce_scenarios(
 
     rep_idx = np.array(rep_indices)
     rep_probs_arr = np.array(rep_probs)
-    log.info("Selected %d representatives | prob sum=%.6f", len(rep_idx), rep_probs_arr.sum())
+    log.info("Selected %d representative scenarios (prob sum=%.6f)", len(rep_idx), rep_probs_arr.sum())
 
     # Save all six output files
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -121,8 +121,7 @@ def reduce_scenarios(
     }.items():
         path = output_dir / pattern.format(type=kind)
         pd.DataFrame(arr, index=time_index, columns=col_names).to_csv(path)
-        log.info("Saved %s", path.name)
 
     prob_path = output_dir / pattern.format(type="probabilities")
     pd.DataFrame({"Probability": rep_probs_arr}).to_csv(prob_path, index=False)
-    log.info("Saved %s", prob_path.name)
+    log.info("Wrote reduced scenarios to %s", output_dir)

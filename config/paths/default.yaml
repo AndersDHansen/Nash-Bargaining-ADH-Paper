@@ -1,14 +1,25 @@
 # @package paths
 root: "${hydra:runtime.cwd}"
 logs: "${paths.root}/logs"
-data:
-  dir: "${paths.root}/data"
-  wind: "${paths.data.dir}/Wind/combined_wind_data.csv"
-  solar: "${paths.data.dir}/Solar/combined_solar_data.csv"
-  price: "${paths.data.dir}/EnergyReport.csv"
-  consumption: "${paths.data.dir}/ConsumptionIndustry.csv"
+
+# Raw input data — never modified by the pipeline.
+raw:
+  dir:         "${paths.root}/data/raw"
+  wind:        "${paths.raw.dir}/Wind/combined_wind_data.csv"
+  solar:       "${paths.raw.dir}/Solar/combined_solar_data.csv"
+  price:       "${paths.raw.dir}/EnergyReport.csv"
+  consumption: "${paths.raw.dir}/ConsumptionIndustry.csv"
+
+# Processed outputs written by DataPreprocessor.
+# Subdirectories are created at runtime based on scenario_gen settings:
+#   {processed.dir}/mc_{num_scenarios_mc}/                    <- raw MC files, OU prices (monte_price=false)
+#   {processed.dir}/mc_normal_prices_{num_scenarios_mc}/      <- raw MC files, Normal prices (monte_price=true)
+#   {processed.dir}/scenarios_reduced_{num_scenarios_reduced}/ <- K-means reduced files
+processed:
+  dir: "${paths.root}/data/processed"
+
+# Run-specific outputs managed by Hydra (timestamped per run).
 output:
-  scenarios: "${paths.root}/simulations"
   run_dir: "${hydra:runtime.output_dir}"
-  plots: "${hydra:runtime.output_dir}/plots"
+  plots:   "${hydra:runtime.output_dir}/plots"
   results: "${hydra:runtime.output_dir}/results"

@@ -1,4 +1,4 @@
-from omegaconf import DictConfig, OmegaConf
+from omegaconf import DictConfig
 import hydra
 import logging
 
@@ -13,12 +13,10 @@ def main(cfg: DictConfig):
     runner = Runner(cfg)
 
     runner.preprocess_data()
-    # runner.load_data()
-    runner.solve_nbs_model()
-    # runner.export_results()
-    # runner.visualize_results()
-
-    # runner.run()
+    # runner.load_data()          # next step: load scenario CSVs for the optimizer
+    # runner.solve_nbs_model()    # TODO: port ContractNegotiation from Code/
+    # runner.export_results()     # TODO: port save_results_to_csv from Code/
+    # runner.visualize_results()  # TODO: port Plotting_Class from Code/
 
 
 if __name__ == "__main__":

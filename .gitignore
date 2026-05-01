@@ -2,10 +2,14 @@
 stuff/*
 simulations/*
 logs/*
+token.txt
 
 # Hydra
 outputs/*
 multirun/*
+
+# Data
+data/processed/*
 
 # Python
 __pycache__/

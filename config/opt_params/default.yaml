@@ -1,36 +1,45 @@
-# Risk aversion [0 = risk-neutral, 1 = full CVaR]
+# Risk aversion weight: 0 = risk-neutral (maximize expected profit),
+# 1 = fully risk-averse (maximize CVaR only).
+# Utility = (1 - A) * E[pi] + A * CVaR_alpha[pi]
 A_L: 0.5
 A_G: 0.5
 
-# Negotiation power (tau_G = 1 - tau_L, derived at runtime)
+# Load's share of the Nash bargaining surplus; generator gets 1 - tau_L.
+# tau_L = 0 → generator takes all surplus; tau_L = 1 → load takes all surplus.
 tau_L: 0.5
 
-# CVaR confidence level
+# Confidence level for CVaR (tail probability).
+# 0.95 means we consider the worst 5% of scenarios.
 alpha: 0.95
 
-# Discount rates
+# Annual discount rates for generator (G) and load (L).
+# 0.0 = no discounting (all years treated equally).
 D_G: 0.0
 D_L: 0.0
 
-# Risk params
-K_L: 0.0
+# Asymmetric information bias on price and production beliefs.
+# 0.0 = unbiased; >0 = optimistic; <0 = pessimistic.
+# Each party applies their own bias to the shared scenario matrices.
 K_G: 0.0
+K_L: 0.0
 
-# Time horizons and scenarios (must match generated scenarios)
-scenario_time_horizon: 20
+# Contract horizon in years. Must match scenario_gen.years.
 opt_time_horizon: 20
-num_scenarios: 500
 
-# Contract / system bounds
-generator_contract_capacity: 30  # MW
-retail_price: 0.001              # EUR/MWh
-strikeprice_min: 0.040           # EUR/MWh
-strikeprice_max: 0.120           # EUR/MWh (may be overridden by load data)
+# Maximum contractable capacity in MW. Must match scenario_gen.capacity_mw.
+generator_contract_capacity: 30
+
+# Retail electricity price paid by load outside the contract [EUR/MWh].
+# Currently set to zero (load buys at spot).
+retail_price: 0.001
+
+# Strike price search bounds [EUR/MWh].
+# strikeprice_max is overridden at runtime to 1.2x the load's average capture price.
+strikeprice_min: 0.040
+strikeprice_max: 0.120
+
+# Maximum fraction of production that can be contracted under PAP.
 gamma_max: 1.0
 
-
-years: 20
-
-start_time: "2025-01-01"
-seed: 42
-capacity_mw: 30
+# Apply time-value discounting to annual cash flows.
+discount: true

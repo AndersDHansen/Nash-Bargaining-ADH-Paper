@@ -1,0 +1,29 @@
+# @package scenario_gen
+
+# Number of Monte Carlo samples to draw from the fitted distributions.
+# Large enough to capture the full distribution; reduced afterwards.
+num_scenarios_mc: 10000
+
+# Random seed for reproducibility across generation and reduction steps.
+seed: 42
+
+# Length of each scenario in years.
+# Must match opt_params.opt_time_horizon — both refer to the same 20-year contract period.
+years: 20
+
+# Reference start date for the generated time index.
+start_time: "2025-01-01"
+
+# Generator nameplate capacity in MW.
+# Must match opt_params.generator_contract_capacity.
+capacity_mw: 30
+
+# Number of representative scenarios kept after K-means reduction.
+# Also determines the output subfolder name: data/processed/scenarios_reduced_{n}/
+# Change this to produce a different reduction level (e.g. 2000) without touching other files.
+num_scenarios_reduced: 500
+
+# Controls which price model is used during generation AND which files DataLoader reads.
+#   false → OU process for prices + load reduced price file in the optimizer (default)
+#   true  → Normal sampling for prices + load raw Monte Carlo price file
+monte_price: false

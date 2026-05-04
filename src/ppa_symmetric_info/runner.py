@@ -40,7 +40,7 @@ class Runner:
 
         Checks for a cached result first and skips generation if already done.
         """
-        DataPreprocessor(self.config)
+        DataPreprocessor(self.config).run()
 
     def load_data(self):
         """Read scenario CSVs and all config parameters into a DataLoader.

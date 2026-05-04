@@ -7,8 +7,7 @@ num_scenarios_mc: 100000
 # Random seed for reproducibility across generation and reduction steps.
 seed: 42
 
-# Length of each scenario in years.
-# Must match opt_params.opt_time_horizon — both refer to the same 20-year contract period.
+# Length of each scenario in years (= contract horizon).
 years: 20
 
 # Reference start date for the generated time index.

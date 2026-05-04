@@ -1,5 +1,4 @@
 import shutil
-from dataclasses import dataclass, field
 from pathlib import Path
 
 from omegaconf import DictConfig
@@ -11,20 +10,18 @@ from ppa_symmetric_info.utils import get_logger
 log = get_logger(__name__)
 
 
-@dataclass
 class DataPreprocessor:
-    config: DictConfig
-    _reduced_dir: Path = field(init=False)
-    _mc_dir: Path = field(init=False)
-
-    def __post_init__(self):
-        sg = self.config.scenario_gen
-        processed_dir = Path(self.config.paths.processed.dir)
+    def __init__(self, config: DictConfig):
+        sg = config.scenario_gen
+        processed_dir = Path(config.paths.processed.dir)
 
         mc_label = f"mc_normal_prices_{sg.num_scenarios_mc}" if sg.monte_price else f"mc_{sg.num_scenarios_mc}"
         self._mc_dir = processed_dir / mc_label
         self._reduced_dir = processed_dir / f"scenarios_reduced_{sg.num_scenarios_reduced}"
+        self._config = config
 
+    def run(self):
+        sg = self._config.scenario_gen
         self._mc_dir.mkdir(parents=True, exist_ok=True)
         self._reduced_dir.mkdir(parents=True, exist_ok=True)
 
@@ -38,8 +35,8 @@ class DataPreprocessor:
         self._cleanup_mc_dir()
 
     def _generate_mc_scenarios(self) -> None:
-        sg = self.config.scenario_gen
-        p = self.config.paths
+        sg = self._config.scenario_gen
+        p = self._config.paths
         log.info("Generating %d Monte Carlo scenarios over %d years (seed=%d)", sg.num_scenarios_mc, sg.years, sg.seed)
         generate_scenarios(
             years=sg.years,
@@ -55,7 +52,7 @@ class DataPreprocessor:
         )
 
     def _reduce_scenarios(self) -> None:
-        sg = self.config.scenario_gen
+        sg = self._config.scenario_gen
         log.info("Reducing %d Monte Carlo scenarios to %d representatives (seed=%d)", sg.num_scenarios_mc, sg.num_scenarios_reduced, sg.seed)
         reduce_scenarios(
             scenarios_dir=self._mc_dir,
@@ -72,7 +69,7 @@ class DataPreprocessor:
         log.info("Removed intermediate Monte Carlo files from %s", self._mc_dir)
 
     def _reduced_scenarios_exist(self) -> bool:
-        sg = self.config.scenario_gen
+        sg = self._config.scenario_gen
         # probabilities file is always written last — its presence means a complete run
         sentinel = self._reduced_dir / f"probabilities_scenarios_reduced_{sg.years}y_{sg.num_scenarios_reduced}s.csv"
         return sentinel.exists()

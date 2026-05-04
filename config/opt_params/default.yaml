@@ -17,14 +17,13 @@ alpha: 0.95
 D_G: 0.0
 D_L: 0.0
 
-# Asymmetric information bias on price and production beliefs.
+# Asymmetric information: each party may hold biased beliefs about prices and production.
 # 0.0 = unbiased; >0 = optimistic; <0 = pessimistic.
-# Each party applies their own bias to the shared scenario matrices.
-K_G: 0.0
-K_L: 0.0
-
-# Contract horizon in years. Must match scenario_gen.years.
-opt_time_horizon: 20
+# Price and production biases are kept separate because sensitivity analyses vary them independently.
+K_G_price: 0.0
+K_L_price: 0.0
+K_G_prod: 0.0
+K_L_prod: 0.0
 
 # Maximum contractable capacity in MW. Must match scenario_gen.capacity_mw.
 generator_contract_capacity: 30
@@ -33,10 +32,12 @@ generator_contract_capacity: 30
 # Currently set to zero (load buys at spot).
 retail_price: 0.001
 
-# Strike price search bounds [EUR/MWh].
-# strikeprice_max is overridden at runtime to 1.2x the load's average capture price.
+# Strike price lower bound [EUR/MWh].
 strikeprice_min: 0.040
-strikeprice_max: 0.120
+# Upper bound is computed at runtime as:
+#   strikeprice_max = strikeprice_max_factor * E_prob[price * load_capture_rate]
+# Adjust this factor to tighten or widen the optimizer's search space.
+strikeprice_max_factor: 1.2
 
 # Maximum fraction of production that can be contracted under PAP.
 gamma_max: 1.0

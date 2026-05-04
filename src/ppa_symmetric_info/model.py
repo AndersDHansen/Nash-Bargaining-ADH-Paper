@@ -1,33 +1,7 @@
-"""
-Nash Bargaining Solution model for PPA contract negotiation.
-
-Internal units
---------------
-- Strike price S  : EUR/GWh  (displayed as EUR/MWh via S * 1e3)
-- Contract amount M : GWh/year (Baseload) or dimensionless fraction gamma (PAP)
-- Electricity prices : EUR/GWh
-- Production / load volumes : GWh per time period
-- Earnings / utilities : EUR (summed over time periods and scenarios)
-
-Attribute mapping from legacy InputData → new DataLoader
----------------------------------------------------------
-data.price_true      → data.price
-data.load_scenarios  → data.load
-data.load_CR         → data.load_cr
-data.PROB            → data.prob
-data.TIME            → data.periods
-data.SCENARIOS_L     → data.scenarios
-data.Discount        → data.discount
-data.Barter          → data.barter
-data.d_G / d_L       → data.D_G / data.D_L
-"""
-
 import types
 
 import numpy as np
 import gurobipy as gp
-from gurobipy import GRB
-from scipy.optimize import minimize, NonlinearConstraint
 
 from ppa_symmetric_info.utils import get_logger
 

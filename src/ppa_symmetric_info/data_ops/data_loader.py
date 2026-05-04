@@ -1,6 +1,5 @@
 import numpy as np
 import pandas as pd
-from dataclasses import dataclass
 from pathlib import Path
 
 from omegaconf import DictConfig
@@ -10,20 +9,16 @@ from ppa_symmetric_info.utils import get_logger
 log = get_logger(__name__)
 
 
-@dataclass
 class DataLoader:
-    config: DictConfig
-
-    def __post_init__(self):
-        self._load_config()
+    def __init__(self, config: DictConfig):
+        self._load_config(config)
         self._load_scenarios()
         log.info(
             "Data loaded: %d scenarios, %d years, contract=%s, barter=%s",
             self.num_scenarios, self.years, self.contract_type, self.barter,
         )
 
-    def _load_config(self):
-        cfg = self.config
+    def _load_config(self, cfg: DictConfig):
         scen_gen = cfg.scenario_gen
         params = cfg.opt_params
 
@@ -42,13 +37,16 @@ class DataLoader:
         self.alpha = params.alpha
         self.D_G = params.D_G
         self.D_L = params.D_L
-        self.K_G = params.K_G
-        self.K_L = params.K_L
+        self.K_G_price = params.K_G_price
+        self.K_L_price = params.K_L_price
+        self.K_G_prod = params.K_G_prod
+        self.K_L_prod = params.K_L_prod
 
         # Contract bounds
         self.generator_contract_capacity = params.generator_contract_capacity
         self.retail_price = params.retail_price
         self.strikeprice_min = params.strikeprice_min
+        self._strikeprice_max_factor = params.strikeprice_max_factor
         self.gamma_max = params.gamma_max
         self.contract_amount_min = 0
         self.contract_amount_max = self.generator_contract_capacity * 8760 * 1e-3  # GWh/year
@@ -81,9 +79,9 @@ class DataLoader:
         for df in (self.production, self.capture_rate, self.load, self.load_cr):
             df.columns = cols
 
-        # strikeprice_max: 1.2x the probability-weighted mean load capture price
+        # @AndersDHansen Here we are dealing with strike_price min and max. are these values to be calculated, or input params? 
         capture_price_load = self.price * self.load_cr
-        self.strikeprice_max = float((capture_price_load * self.prob).sum(axis=1).mean()) * 1.2
+        self.strikeprice_max = float((capture_price_load * self.prob).sum(axis=1).mean()) * self._strikeprice_max_factor
         log.info("Strike price bounds: %.4f to %.4f", self.strikeprice_min, self.strikeprice_max)
 
     @staticmethod

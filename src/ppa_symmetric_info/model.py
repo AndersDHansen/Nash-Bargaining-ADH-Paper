@@ -20,22 +20,20 @@ class ModelNashBargaining:
         self.build_constraints()
         self.build_obj_func()
         self.solve()
-        
-        
 
     def _directories(self):
         # Path hierarchy — explicit attributes for every level
         self.path_results_root = Path(self.data.path_results).parent.parent  # results/
-        self.path_run_type     = Path(self.data.path_results).parent          # results/single_run/
-        self.path_sim          = Path(self.data.path_results)                 # results/single_run/sim_name/
-        self.path_figures      = self.path_sim / "figures"
+        self.path_run_type = Path(self.data.path_results).parent  # results/single_run/
+        self.path_sim = Path(self.data.path_results)  # results/single_run/sim_name/
+        self.path_figures = self.path_sim / "figures"
 
         # File paths
-        self.path_model_lp    = self.path_sim / "model.lp"
-        self.path_model_mps   = self.path_sim / "model.mps"
+        self.path_model_lp = self.path_sim / "model.lp"
+        self.path_model_mps = self.path_sim / "model.mps"
         self.path_results_csv = self.path_sim / "results.csv"
-        self.path_config      = self.path_sim / "config.yaml"
-        self.path_log         = self.path_sim / "run.log"
+        self.path_config = self.path_sim / "config.yaml"
+        self.path_log = self.path_sim / "run.log"
 
         # Create directories
         self.path_sim.mkdir(parents=True, exist_ok=True)
@@ -47,9 +45,9 @@ class ModelNashBargaining:
         # Add a file handler so the full pipeline log is captured in run.log
         handler = logging.FileHandler(self.path_log, mode="w")
         handler.setLevel(logging.DEBUG)
-        handler.setFormatter(logging.Formatter(
-            "[%(asctime)s][%(name)s][%(levelname)s] - %(message)s"
-        ))
+        handler.setFormatter(
+            logging.Formatter("[%(asctime)s][%(name)s][%(levelname)s] - %(message)s")
+        )
         logging.getLogger().addHandler(handler)
 
     def build_variables(self):

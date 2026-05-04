@@ -9,7 +9,7 @@ class ModelNashBargaining:
         self.data = data
         self.m = gb.Model()
 
-        logger.info("I am alive")
+        logger.info("Nash Barganining model initalized")
 
     def run(self):
         self.build_variables()

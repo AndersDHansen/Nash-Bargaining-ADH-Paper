@@ -9,97 +9,97 @@ Full documentation is available via MkDocs (see [Documentation](#documentation))
 The framework finds optimal strike prices and contract amounts by solving a Nash bargaining problem subject to CVaR-based individual rationality constraints. Two contract structures are supported:
 
 | Contract type | Description |
-|---|---|
-| Baseload | Fixed volume delivered each period |
-| Pay-As-Produced (PAP) | Volume follows actual renewable production |
+| --- | --- |
+| Baseload | Fixed volume `M` (GWh/year) delivered each period |
+| Pay-As-Produced (PAP) | Share `γ` of actual renewable production |
 
 ## Prerequisites
 
-- Python 3.10+
+- Python 3.13+
 - Gurobi optimizer with a valid license ([academic licenses](https://www.gurobi.com/academia/academic-program-and-licenses/) are free)
-- [uv](https://github.com/astral-sh/uv) (recommended) or pip
+- [uv](https://github.com/astral-sh/uv) (recommended) or conda
 
 ## Installation
 
 ```bash
 git clone https://github.com/<your-username>/Nash-Bargaining-ADH-Paper.git
 cd Nash-Bargaining-ADH-Paper
-uv sync   # or: pip install -e .
+uv sync
 ```
 
-Copy `.env.example` to `.env` and set `DROPBOX_FIGURES_DIR` if you want figures exported to Overleaf/Dropbox.
+Or with conda:
+
+```bash
+conda env create -f envs/environment.yaml
+conda activate nash-bargaining
+pip install -e .
+```
 
 ## Usage
 
-### 1. Generate and reduce scenarios (run once)
-
-```bash
-python -m ppa_symmetric_info.generate_scenarios
-python -m ppa_symmetric_info.scenario_reduction
-```
-
-Scenario files are written to `simulations/`.
-
-### 2. Run contract negotiation
+### Run the full pipeline
 
 ```bash
 python main.py
 ```
 
-Results and plots land in `outputs/<date>/<time>/` (Hydra-managed).
+This runs scenario generation (if not cached), scenario reduction, and the Nash bargaining optimization.
 
-Override any parameter from the CLI:
+### Override parameters from the CLI
 
 ```bash
+# Switch to Pay-As-Produced contract
 python main.py contract=pap
-python main.py optimization.A_L=0.3 optimization.tau_L=0.6
-python main.py optimization.sensitivity=true
+
+# Change risk aversion
+python main.py opt_params.A_L=0.3 opt_params.A_G=0.7
+
+# Use a preset scenario count
+python main.py scenario_gen=2000_scenarios
+
+# Enable time-value discounting
+python main.py discount=true
+
+# Run sensitivity analyses
+python main.py run_sensitivity=true
 ```
 
 ## Configuration
 
-Config files live in `config/` and are managed by [Hydra](https://hydra.cc). Switch contract types or sweep parameters without touching Python:
+Config files live in `config/` and are managed by [Hydra](https://hydra.cc). The top-level composition is in `config/config.yaml`.
 
-| Group | File | Controls |
+| Group | File(s) | Controls |
 | --- | --- | --- |
-| `optimization` | `config/optimization/default.yaml` | Risk aversion, negotiation power, CVaR level, horizons |
-| `contract` | `config/contract/{baseload,pap}.yaml` | Contract type and McCormick relaxation flag |
-| `scenarios` | `config/scenarios/default.yaml` | Monte Carlo settings, time horizon, seed |
-| `sensitivity` | `config/sensitivity/default.yaml` | Parameter sweep ranges and selected analyses |
-| `paths` | `config/paths/default.yaml` | Data inputs and output directories |
+| `opt_params` | `config/opt_params/default.yaml` | Risk aversion, negotiation power, CVaR level, strike price bounds |
+| `contract` | `config/contract/{baseload,pap}.yaml` | Contract type and barter flag |
+| `scenario_gen` | `config/scenario_gen/default.yaml` (+ presets) | Monte Carlo settings, time horizon, seed, scenario count |
+| `sensitivity` | `config/sensitivity/default.yaml` | Parameter sweep ranges |
+| `paths` | `config/paths/default.yaml` | Data input and output directories |
 
 ## Folder Structure
 
-```
+```text
 Nash-Bargaining-ADH-Paper/
-├── config/                  # Hydra configuration
+├── config/                   # Hydra configuration
 │   ├── config.yaml
-│   ├── contract/            # baseload.yaml, pap.yaml
-│   ├── optimization/
-│   ├── paths/
-│   ├── scenarios/
-│   └── sensitivity/
-├── data/                    # Raw input data
-│   ├── Wind/
-│   ├── Solar/
-│   ├── EnergyReport.csv
-│   └── ConsumptionIndustry.csv
-├── docs/                    # MkDocs documentation source
-├── ppa_symmetric_info/      # Python package
-│   ├── contract_negotiation.py
-│   ├── generate_scenarios.py
-│   ├── scenario_reduction.py
-│   ├── main_forecast.py
-│   ├── sensitivity_analysis.py
-│   ├── dataloader.py
-│   ├── utils.py
-│   └── plotting/
-├── simulations/             # Generated scenario files
-├── outputs/                 # Hydra run outputs (date-stamped)
-├── Code/                    # Legacy code (reference only)
-├── main.py                  # Entry point
+│   ├── contract/             # baseload.yaml, pap.yaml
+│   ├── opt_params/           # default.yaml
+│   ├── paths/                # default.yaml
+│   ├── scenario_gen/         # default.yaml, 100_scenarios.yaml, 2000_scenarios.yaml, 5000_scenarios.yaml
+│   └── sensitivity/          # default.yaml
+├── data/                     # Raw input data (wind, solar, load)
+├── docs/                     # MkDocs documentation source
+├── envs/                     # Conda environment file
+├── src/
+│   └── ppa_symmetric_info/   # Python package
+│       ├── data_ops/         # DataLoader, DataPreprocessor, scenario generation & reduction
+│       ├── model.py          # Nash bargaining optimization (Gurobi)
+│       ├── runner.py         # Pipeline orchestration
+│       └── utils.py          # Logging helpers
+├── Code/                     # Legacy code (reference only, do not run)
+├── main.py                   # Entry point (Hydra-managed)
 ├── pyproject.toml
-└── Makefile
+└── uv.lock
 ```
 
 ## Documentation

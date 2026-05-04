@@ -1,5 +1,7 @@
+import logging
 from pathlib import Path
 import gurobipy as gb
+from omegaconf import OmegaConf
 from .utils import get_logger
 
 logger = get_logger(__name__)
@@ -18,13 +20,37 @@ class ModelNashBargaining:
         self.build_constraints()
         self.build_obj_func()
         self.solve()
+        
+        
 
     def _directories(self):
-        self.path_res = Path(self.data.path_results)
-        self.path_res.mkdir(parents=True, exist_ok=True)
+        # Path hierarchy — explicit attributes for every level
+        self.path_results_root = Path(self.data.path_results).parent.parent  # results/
+        self.path_run_type     = Path(self.data.path_results).parent          # results/single_run/
+        self.path_sim          = Path(self.data.path_results)                 # results/single_run/sim_name/
+        self.path_figures      = self.path_sim / "figures"
 
-        self.path_figures = self.path_res / "figures"
-        self.path_figures.mkdir(parents=True, exist_ok=True)
+        # File paths
+        self.path_model_lp    = self.path_sim / "model.lp"
+        self.path_model_mps   = self.path_sim / "model.mps"
+        self.path_results_csv = self.path_sim / "results.csv"
+        self.path_config      = self.path_sim / "config.yaml"
+        self.path_log         = self.path_sim / "run.log"
+
+        # Create directories
+        self.path_sim.mkdir(parents=True, exist_ok=True)
+        self.path_figures.mkdir(exist_ok=True)
+
+        # Save the resolved Hydra config for this run
+        OmegaConf.save(self.data.config, self.path_config)
+
+        # Add a file handler so the full pipeline log is captured in run.log
+        handler = logging.FileHandler(self.path_log, mode="w")
+        handler.setLevel(logging.DEBUG)
+        handler.setFormatter(logging.Formatter(
+            "[%(asctime)s][%(name)s][%(levelname)s] - %(message)s"
+        ))
+        logging.getLogger().addHandler(handler)
 
     def build_variables(self):
         self._build_gen_vars()
@@ -98,7 +124,6 @@ class ModelNashBargaining:
         logger.info("Results extracted")
 
     def _save_model_files(self):
-
-        self.m.write(str(self.path_res / "model.lp"))
-        self.m.write(str(self.path_res / "model.mps"))
-        logger.info("Model files saved to %s", self.path_res)
+        self.m.write(str(self.path_model_lp))
+        self.m.write(str(self.path_model_mps))
+        logger.info("Model files saved to %s", self.path_sim)

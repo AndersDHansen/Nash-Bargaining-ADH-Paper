@@ -1,5 +1,3 @@
-from pathlib import Path
-from omegaconf import OmegaConf
 from .utils import get_logger
 from .data_ops import DataLoader, DataPreprocessor
 from .model import ModelNashBargaining
@@ -58,14 +56,8 @@ class Runner:
         self.nbs_model.run()
 
     def export_results(self):
-        self._save_config()
         # TODO: port save_results_to_csv from Code/main_forecast.py
-
-    def _save_config(self):
-        out = Path(self.data.path_results)
-        out.mkdir(parents=True, exist_ok=True)
-        OmegaConf.save(self.config, out / "config.yaml")
-        log.info("Config saved to %s", out / "config.yaml")
+        pass
 
     def visualize_results(self):
         # TODO: port Plotting_Class from Code/plotting/

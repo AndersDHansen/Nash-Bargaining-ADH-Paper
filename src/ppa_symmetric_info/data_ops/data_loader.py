@@ -13,12 +13,26 @@ class DataLoader:
     def __init__(self, config: DictConfig):
         self._load_config(config)
         self._load_scenarios()
+        self._prepare_model_inputs()
         log.info(
             "Data loaded: %d scenarios, %d years, contract=%s, barter=%s",
-            self.num_scenarios, self.years, self.contract_type, self.barter,
+            self.num_scenarios,
+            self.years,
+            self.contract_type,
+            self.barter,
         )
 
+    @staticmethod
+    def _read_csv(
+        directory: Path, kind: str, years: int, num_scenarios: int
+    ) -> pd.DataFrame:
+        fname = f"{kind}_scenarios_reduced_{years}y_{num_scenarios}s.csv"
+        df = pd.read_csv(directory / fname, index_col=0)
+        df.index = pd.to_datetime(df.index)
+        return df
+
     def _load_config(self, cfg: DictConfig):
+        self.config = cfg  # stored so downstream classes can save it without re-passing
         scen_gen = cfg.scenario_gen
         exp = cfg.experiment
 
@@ -84,9 +98,68 @@ class DataLoader:
         self.strikeprice_max = float((capture_price_load * self.prob).sum(axis=1).mean()) * self._strikeprice_max_factor
         log.info("Strike price bounds: %.4f to %.4f", self.strikeprice_min, self.strikeprice_max)
 
-    @staticmethod
-    def _read_csv(directory: Path, kind: str, years: int, num_scenarios: int) -> pd.DataFrame:
-        fname = f"{kind}_scenarios_reduced_{years}y_{num_scenarios}s.csv"
-        df = pd.read_csv(directory / fname, index_col=0)
-        df.index = pd.to_datetime(df.index)
-        return df
+    def _prepare_model_inputs(self):
+        price      = self.price.to_numpy()        # (years, scenarios)
+        production = self.production.to_numpy()
+        capture_rate = self.capture_rate.to_numpy()
+        load       = self.load.to_numpy()
+        load_cr    = self.load_cr.to_numpy()
+        prob       = self.prob                    # (scenarios,)
+
+        # Discount factors — shape (years, 1) so they broadcast over scenarios
+        if self.discount:
+            self.discount_factors_G = (1 / (1 + self.D_G) ** np.arange(self.years))[:, None]
+            self.discount_factors_L = (1 / (1 + self.D_L) ** np.arange(self.years))[:, None]
+        else:
+            self.discount_factors_G = np.ones((self.years, 1))
+            self.discount_factors_L = np.ones((self.years, 1))
+
+        # Expected price and production per year — shape (years, 1) for broadcasting
+        expected_price      = (price      * prob).sum(axis=1, keepdims=True)
+        expected_production = (production * prob).sum(axis=1, keepdims=True)
+
+        # Biased scenario distributions — shape (years, scenarios)
+        self.price_G      = price      + self.K_G_price * expected_price
+        self.price_L      = price      + self.K_L_price * expected_price
+        self.production_G = production + self.K_G_prod  * expected_production
+        self.production_L = production + self.K_L_prod  * expected_production
+
+        # Capture price under true distribution (used in result extraction)
+        self.capture_price_G     = capture_rate * price
+        self.capture_price_G_avg = (self.capture_price_G * prob).sum(axis=1, keepdims=True)
+
+        # No-contract per-scenario earnings, summed over years (with discounting)
+        # Generator: sells renewable production at capture rate × biased price
+        self.earnings_nc_G = (
+            self.discount_factors_G * capture_rate * self.price_G * self.production_G
+        ).sum(axis=0)  # (scenarios,)
+
+        # Load: buys electricity at load_cr × biased price
+        self.earnings_nc_L = (
+            self.discount_factors_L * load * (-load_cr * self.price_L)
+        ).sum(axis=0)  # (scenarios,)
+
+        # CVaR of no-contract earnings (left tail, worst outcomes)
+        cvar_nc_G = self._cvar_left(self.earnings_nc_G, prob)
+        cvar_nc_L = self._cvar_left(self.earnings_nc_L, prob)
+
+        # Disagreement points: U_i = (1 - A_i)*E[earnings] + A_i*CVaR[earnings]
+        self.zeta_G = (1 - self.A_G) * (prob * self.earnings_nc_G).sum() + self.A_G * cvar_nc_G
+        self.zeta_L = (1 - self.A_L) * (prob * self.earnings_nc_L).sum() + self.A_L * cvar_nc_L
+
+        log.info("Disagreement points: zeta_G=%.4f, zeta_L=%.4f", self.zeta_G, self.zeta_L)
+
+    def _cvar_left(self, x: np.ndarray, prob: np.ndarray) -> float:
+        """Expected value of x in the worst (1-alpha) probability mass."""
+        order  = np.argsort(x)
+        x_s    = x[order]
+        p_s    = prob[order]
+        tail   = 1.0 - self.alpha
+        # probability mass already accumulated before each scenario
+        prev_cum = np.concatenate([[0.0], np.cumsum(p_s)[:-1]])
+        weights  = np.minimum(p_s, np.maximum(0.0, tail - prev_cum))
+        return float((weights * x_s).sum() / tail)
+
+    # @AndersDHansen do we need this function to exist?
+    def _compute_strike_boundaries(self):
+        pass

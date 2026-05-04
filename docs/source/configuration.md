@@ -8,26 +8,42 @@ The top-level composition is defined in `config/config.yaml`:
 defaults:
   - paths: default
   - scenario_gen: default
-  - contract: baseload
-  - opt_params: default
+  - experiment: baseload    # switch to pap for PAP contract
   - sensitivity: default
   - _self_
 
 run_sensitivity: false
-discount: true
 ```
 
-## opt_params
+## experiment
 
-`config/opt_params/default.yaml`
+The experiment file is the **single source of truth for a simulation run**. It merges contract settings and model parameters in one place. Two base files are provided:
 
-| Key | Default | Description |
+| File | Contract | sim_name |
 | --- | --- | --- |
+| `config/experiment/baseload.yaml` | Baseload | `base_baseload` |
+| `config/experiment/pap.yaml` | PAP | `base_pap` |
+
+Switch experiment from the CLI:
+
+```bash
+python main.py experiment=pap
+```
+
+### experiment parameters
+
+| Key | Default (baseload) | Description |
+| --- | --- | --- |
+| `sim_name` | `base_baseload` | Output folder name. Results land in `results/{run_type}/{sim_name}/`. |
+| `run_type` | `single_run` | Top-level results subfolder: `single_run` or `sensitivity`. |
+| `discount` | `true` | Apply time-value discounting to annual cash flows. |
+| `contract_type` | `baseload` | `baseload` or `pap`. |
+| `barter` | `true` | Enable barter mechanism (baseload only). |
 | `A_L` | `0.5` | Load risk aversion. `0` = risk-neutral, `1` = full CVaR. |
 | `A_G` | `0.5` | Generator risk aversion. |
 | `tau_L` | `0.5` | Load negotiation power in [0, 1]. Generator power is `1 - tau_L`. |
 | `alpha` | `0.95` | CVaR confidence level. |
-| `D_G` | `0.0` | Generator annual discount rate. `0.0` = no discounting. |
+| `D_G` | `0.0` | Generator annual discount rate. |
 | `D_L` | `0.0` | Load annual discount rate. |
 | `K_G_price` | `0.0` | Generator price belief bias. `>0` = optimistic, `<0` = pessimistic. |
 | `K_L_price` | `0.0` | Load price belief bias. |
@@ -39,23 +55,7 @@ discount: true
 | `strikeprice_max_factor` | `1.2` | Upper bound multiplier: `strikeprice_max = factor × E[price × load_capture_rate]`. |
 | `gamma_max` | `1.0` | Maximum contract share for PAP contracts. |
 
-## contract
-
-Two options selectable at the CLI with `contract=baseload` or `contract=pap`.
-
-`config/contract/baseload.yaml`
-
-```yaml
-contract_type: baseload
-barter: true
-```
-
-`config/contract/pap.yaml`
-
-```yaml
-contract_type: pap
-barter: false
-```
+To create a new experiment (e.g., high risk aversion), copy `baseload.yaml`, change `sim_name`, and adjust the parameters.
 
 ## scenario_gen
 
@@ -71,7 +71,7 @@ barter: false
 | `seed` | `42` | Random seed for reproducibility. |
 | `capacity_mw` | `30` | Generator nameplate capacity in MW. |
 
-Presets for alternative scenario counts are available as drop-in overrides:
+Presets for alternative scenario counts:
 
 ```bash
 python main.py scenario_gen=100_scenarios    # fast testing
@@ -90,25 +90,16 @@ python main.py scenario_gen=5000_scenarios
 | `A_G_values` | `[0, 0.1, 0.25, 0.5, 0.75, 0.9, 1.0]` | Generator risk aversion grid. |
 | `A_L_values` | `[0, 0.1, 0.25, 0.5, 0.75, 0.9, 1.0]` | Load risk aversion grid. |
 
-`tau_L` sweep values are computed at runtime as `np.linspace(0, 1, num_sensitivity)`.
-
 ## paths
 
 `config/paths/default.yaml`
 
-Paths are composed via interpolation from a single root:
-
 ```yaml
 paths:
   root: "${hydra:runtime.cwd}"
-  data:
-    dir: "${paths.root}/data"
-    wind: "${paths.data.dir}/Wind/combined_wind_data.csv"
+  results:
+    dir:   "${paths.root}/results"
+    plots: "figures"
   processed:
     dir: "${paths.root}/data/processed"
-  output:
-    results: "${hydra:runtime.output_dir}/results"
-    plots:   "${hydra:runtime.output_dir}/plots"
 ```
-
-To change the data location, override only `paths.data.dir`; all file paths follow automatically.

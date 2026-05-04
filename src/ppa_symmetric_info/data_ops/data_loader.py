@@ -20,7 +20,7 @@ class DataLoader:
 
     def _load_config(self, cfg: DictConfig):
         scen_gen = cfg.scenario_gen
-        params = cfg.opt_params
+        exp = cfg.experiment
 
         # Time / scenario dimensions
         self.years = scen_gen.years
@@ -30,36 +30,36 @@ class DataLoader:
         self.monte_price = scen_gen.monte_price
 
         # Risk / negotiation
-        self.A_L = params.A_L
-        self.A_G = params.A_G
-        self.tau_L = params.tau_L
-        self.tau_G = 1.0 - params.tau_L
-        self.alpha = params.alpha
-        self.D_G = params.D_G
-        self.D_L = params.D_L
-        self.K_G_price = params.K_G_price
-        self.K_L_price = params.K_L_price
-        self.K_G_prod = params.K_G_prod
-        self.K_L_prod = params.K_L_prod
+        self.A_L = exp.A_L
+        self.A_G = exp.A_G
+        self.tau_L = exp.tau_L
+        self.tau_G = 1.0 - exp.tau_L
+        self.alpha = exp.alpha
+        self.D_G = exp.D_G
+        self.D_L = exp.D_L
+        self.K_G_price = exp.K_G_price
+        self.K_L_price = exp.K_L_price
+        self.K_G_prod = exp.K_G_prod
+        self.K_L_prod = exp.K_L_prod
 
         # Contract bounds
-        self.generator_contract_capacity = params.generator_contract_capacity
-        self.retail_price = params.retail_price
-        self.strikeprice_min = params.strikeprice_min
-        self._strikeprice_max_factor = params.strikeprice_max_factor
-        self.gamma_max = params.gamma_max
+        self.generator_contract_capacity = exp.generator_contract_capacity
+        self.retail_price = exp.retail_price
+        self.strikeprice_min = exp.strikeprice_min
+        self._strikeprice_max_factor = exp.strikeprice_max_factor
+        self.gamma_max = exp.gamma_max
         self.contract_amount_min = 0
         self.contract_amount_max = self.generator_contract_capacity * 8760 * 1e-3  # GWh/year
 
-        # Run-level flags (top-level in config.yaml, barter via contract/*.yaml)
-        self.contract_type = cfg.contract_type
-        self.barter = cfg.barter
-        self.discount = cfg.discount
+        # Run-level flags (all now inside the experiment file)
+        self.contract_type = exp.contract_type
+        self.barter = exp.barter
+        self.discount = exp.discount
 
         # Paths
         self.path_scenarios = Path(cfg.paths.processed.dir) / f"scenarios_reduced_{self.num_scenarios}"
-        self.path_results = Path(cfg.paths.output.results)
-        self.path_plots = Path(cfg.paths.output.plots)
+        self.path_results = Path(cfg.paths.results.dir) / exp.run_type / exp.sim_name
+        self.path_plots = self.path_results / cfg.paths.results.plots
 
     def _load_scenarios(self):
         years, n = self.years, self.num_scenarios
@@ -79,7 +79,7 @@ class DataLoader:
         for df in (self.production, self.capture_rate, self.load, self.load_cr):
             df.columns = cols
 
-        # @AndersDHansen Here we are dealing with strike_price min and max. are these values to be calculated, or input params? 
+        # @AndersDHansen Here we are dealing with strike_price min and max. are these values to be calculated, or input params?
         capture_price_load = self.price * self.load_cr
         self.strikeprice_max = float((capture_price_load * self.prob).sum(axis=1).mean()) * self._strikeprice_max_factor
         log.info("Strike price bounds: %.4f to %.4f", self.strikeprice_min, self.strikeprice_max)

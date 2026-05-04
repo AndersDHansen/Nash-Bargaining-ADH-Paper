@@ -1,3 +1,4 @@
+from pathlib import Path
 import gurobipy as gb
 from .utils import get_logger
 
@@ -8,6 +9,7 @@ class ModelNashBargaining:
     def __init__(self, data):
         self.data = data
         self.m = gb.Model()
+        self._directories()
 
         logger.info("Nash Barganining model initalized")
 
@@ -17,7 +19,12 @@ class ModelNashBargaining:
         self.build_obj_func()
         self.solve()
 
-    # Build model variables
+    def _directories(self):
+        self.path_res = Path(self.data.path_results)
+        self.path_res.mkdir(parents=True, exist_ok=True)
+
+        self.path_figures = self.path_res / "figures"
+        self.path_figures.mkdir(parents=True, exist_ok=True)
 
     def build_variables(self):
         self._build_gen_vars()
@@ -61,6 +68,7 @@ class ModelNashBargaining:
 
         logger.info("Constraints specific to Baseload added")
 
+    # Build the objective funtion
     def build_obj_func(self):
 
         if self.data.contract_type == "pap":
@@ -74,6 +82,7 @@ class ModelNashBargaining:
     def _build_obj_baseload(self):
         logger.info("Objective created for Baseload contract")
 
+    # Solve the actual model
     def solve(self):
         logger.info("Solving the model...")
         self.m.optimize()
@@ -82,6 +91,14 @@ class ModelNashBargaining:
             return
         logger.info("Model solved. Extracting results...")
         self._extract_results()
+        self._save_model_files()
 
+    # Extract the results
     def _extract_results(self):
         logger.info("Results extracted")
+
+    def _save_model_files(self):
+
+        self.m.write(str(self.path_res / "model.lp"))
+        self.m.write(str(self.path_res / "model.mps"))
+        logger.info("Model files saved to %s", self.path_res)

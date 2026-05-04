@@ -1,0 +1,52 @@
+# Pay-As-Produced (PAP) contract — single base-case run.
+# This file is the complete specification for one simulation:
+# contract settings, model parameters, and output routing in one place.
+
+# Output routing
+sim_name: base_pap
+run_type: single_run        # single_run | sensitivity
+
+# Apply time-value discounting to annual cash flows.
+discount: true
+
+# Contract
+contract_type: pap
+barter: false
+
+# Risk aversion weight: 0 = risk-neutral, 1 = fully risk-averse (CVaR only).
+# Utility = (1 - A) * E[pi] + A * CVaR_alpha[pi]
+A_L: 0.5
+A_G: 0.5
+
+# Negotiation power: load's share of Nash surplus. Generator gets 1 - tau_L.
+tau_L: 0.5
+
+# CVaR confidence level (tail probability). 0.95 = worst 5% of scenarios.
+alpha: 0.95
+
+# Annual discount rates. 0.0 = no discounting (all years weighted equally).
+D_G: 0.0
+D_L: 0.0
+
+# Asymmetric information biases on price and production beliefs.
+# 0.0 = unbiased. >0 = optimistic, <0 = pessimistic.
+# Price and production are kept separate for independent sensitivity sweeps.
+K_G_price: 0.0
+K_L_price: 0.0
+K_G_prod: 0.0
+K_L_prod: 0.0
+
+# Generator nameplate capacity [MW]. Must match scenario_gen.capacity_mw.
+generator_contract_capacity: 30
+
+# Retail electricity price paid by load outside the contract [EUR/MWh].
+retail_price: 0.001
+
+# Strike price bounds [EUR/MWh].
+# Lower bound is a hard floor. Upper bound is computed at runtime as:
+#   strikeprice_max = strikeprice_max_factor * E_prob[price * load_capture_rate]
+strikeprice_min: 0.040
+strikeprice_max_factor: 1.2
+
+# Maximum fraction of production contractable under PAP.
+gamma_max: 1.0

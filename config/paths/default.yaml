@@ -18,8 +18,12 @@ raw:
 processed:
   dir: "${paths.root}/data/processed"
 
-# Run-specific outputs managed by Hydra (timestamped per run).
+# Hydra-managed run directory (timestamped). Config dumps land here automatically.
 output:
   run_dir: "${hydra:runtime.output_dir}"
-  plots:   "${hydra:runtime.output_dir}/plots"
-  results: "${hydra:runtime.output_dir}/results"
+
+# Static results folder. Experiment subfolder is appended in Python using experiment_name.
+# Full path: {results.dir}/{experiment_name}/
+results:
+  dir:     "${paths.root}/results"
+  plots:   "figures"

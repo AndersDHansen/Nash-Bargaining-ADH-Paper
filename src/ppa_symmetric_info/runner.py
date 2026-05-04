@@ -1,3 +1,5 @@
+from pathlib import Path
+from omegaconf import OmegaConf
 from .utils import get_logger
 from .data_ops import DataLoader, DataPreprocessor
 from .model import ModelNashBargaining
@@ -22,8 +24,9 @@ class Runner:
     def __init__(self, config):
         self.config = config
         log.info(
-            "Runner initialized: contract=%s, sensitivity=%s",
-            config.contract_type,
+            "Runner initialized: contract=%s, sim=%s, sensitivity=%s",
+            config.experiment.contract_type,
+            config.experiment.sim_name,
             config.run_sensitivity,
         )
 
@@ -51,11 +54,18 @@ class Runner:
 
     def solve_nbs_model(self):
         """Build and solve the Nash Bargaining model for the current data."""
-        self.model = ModelNashBargaining(self.data)
+        self.nbs_model = ModelNashBargaining(self.data)
+        self.nbs_model.run()
 
     def export_results(self):
+        self._save_config()
         # TODO: port save_results_to_csv from Code/main_forecast.py
-        pass
+
+    def _save_config(self):
+        out = Path(self.data.path_results)
+        out.mkdir(parents=True, exist_ok=True)
+        OmegaConf.save(self.config, out / "config.yaml")
+        log.info("Config saved to %s", out / "config.yaml")
 
     def visualize_results(self):
         # TODO: port Plotting_Class from Code/plotting/

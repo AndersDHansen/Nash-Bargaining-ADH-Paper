@@ -49,16 +49,13 @@ This runs scenario generation (if not cached), scenario reduction, and the Nash 
 
 ```bash
 # Switch to Pay-As-Produced contract
-python main.py contract=pap
+python main.py experiment=pap
 
-# Change risk aversion
-python main.py opt_params.A_L=0.3 opt_params.A_G=0.7
+# Override a parameter without creating a new experiment file
+python main.py experiment.A_L=0.3 experiment.A_G=0.7
 
 # Use a preset scenario count
 python main.py scenario_gen=2000_scenarios
-
-# Enable time-value discounting
-python main.py discount=true
 
 # Run sensitivity analyses
 python main.py run_sensitivity=true
@@ -70,8 +67,7 @@ Config files live in `config/` and are managed by [Hydra](https://hydra.cc). The
 
 | Group | File(s) | Controls |
 | --- | --- | --- |
-| `opt_params` | `config/opt_params/default.yaml` | Risk aversion, negotiation power, CVaR level, strike price bounds |
-| `contract` | `config/contract/{baseload,pap}.yaml` | Contract type and barter flag |
+| `experiment` | `config/experiment/{baseload,pap}.yaml` | Complete run spec: contract type, all model parameters, output routing |
 | `scenario_gen` | `config/scenario_gen/default.yaml` (+ presets) | Monte Carlo settings, time horizon, seed, scenario count |
 | `sensitivity` | `config/sensitivity/default.yaml` | Parameter sweep ranges |
 | `paths` | `config/paths/default.yaml` | Data input and output directories |
@@ -82,8 +78,7 @@ Config files live in `config/` and are managed by [Hydra](https://hydra.cc). The
 Nash-Bargaining-ADH-Paper/
 ├── config/                   # Hydra configuration
 │   ├── config.yaml
-│   ├── contract/             # baseload.yaml, pap.yaml
-│   ├── opt_params/           # default.yaml
+│   ├── experiment/           # baseload.yaml, pap.yaml (complete run specifications)
 │   ├── paths/                # default.yaml
 │   ├── scenario_gen/         # default.yaml, 100_scenarios.yaml, 2000_scenarios.yaml, 5000_scenarios.yaml
 │   └── sensitivity/          # default.yaml

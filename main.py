@@ -14,7 +14,7 @@ def main(cfg: DictConfig):
 
     runner.preprocess_data()
     runner.load_data()
-    # runner.solve_nbs_model()    # TODO: port ContractNegotiation from Code/
+    runner.solve_nbs_model()
     # runner.export_results()     # TODO: port save_results_to_csv from Code/
     # runner.visualize_results()  # TODO: port Plotting_Class from Code/
 

@@ -1,6 +1,6 @@
 from .utils import get_logger
 from .data_ops import DataLoader, DataPreprocessor
-from .model import ContractNegotiation
+from .model import ModelNashBargaining
 
 log = get_logger(__name__)
 
@@ -51,7 +51,7 @@ class Runner:
 
     def solve_nbs_model(self):
         """Build and solve the Nash Bargaining model for the current data."""
-        self.model = ContractNegotiation(self.data)
+        self.model = ModelNashBargaining(self.data)
 
     def export_results(self):
         # TODO: port save_results_to_csv from Code/main_forecast.py

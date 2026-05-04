@@ -6,8 +6,6 @@
 sim_name: base_baseload
 run_type: single_run        # single_run | sensitivity
 
-# Apply time-value discounting to annual cash flows.
-discount: true
 
 # Contract
 contract_type: baseload
@@ -24,9 +22,6 @@ tau_L: 0.5
 # CVaR confidence level (tail probability). 0.95 = worst 5% of scenarios.
 alpha: 0.95
 
-# Annual discount rates. 0.0 = no discounting (all years weighted equally).
-D_G: 0.0
-D_L: 0.0
 
 # Asymmetric information biases on price and production beliefs.
 # 0.0 = unbiased. >0 = optimistic, <0 = pessimistic.

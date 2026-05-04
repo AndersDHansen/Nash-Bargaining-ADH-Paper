@@ -121,8 +121,8 @@ class DataLoader:
         # Biased scenario distributions — shape (years, scenarios)
         self.price_G      = price      + self.K_G_price * expected_price
         self.price_L      = price      + self.K_L_price * expected_price
-        self.production_G = production + self.K_G_prod  * expected_production
-        self.production_L = production + self.K_L_prod  * expected_production
+        self.production_G = production + self.K_G_prod  * expected_production   # Belief of G
+        self.production_L = production + self.K_L_prod  * expected_production   # Belief of L
 
         # Capture price under true distribution (used in result extraction)
         self.capture_price_G     = capture_rate * price

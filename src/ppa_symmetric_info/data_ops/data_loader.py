@@ -4,7 +4,7 @@ from pathlib import Path
 
 from omegaconf import DictConfig
 
-from ppa_symmetric_info.utils import get_logger
+from ..utils import get_logger
 
 log = get_logger(__name__)
 

@@ -3,9 +3,9 @@ from pathlib import Path
 
 from omegaconf import DictConfig
 
-from ppa_symmetric_info.data_ops.scenario_generation import generate_scenarios
-from ppa_symmetric_info.data_ops.scenario_reduction import reduce_scenarios
-from ppa_symmetric_info.utils import get_logger
+from .scenario_generation import generate_scenarios
+from .scenario_reduction import reduce_scenarios
+from ..utils import get_logger
 
 log = get_logger(__name__)
 

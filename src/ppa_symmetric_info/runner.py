@@ -1,7 +1,6 @@
-from ppa_symmetric_info.utils import get_logger
-from ppa_symmetric_info.data_ops import DataLoader
-from ppa_symmetric_info.data_ops import DataPreprocessor
-from ppa_symmetric_info.model import ContractNegotiation
+from .utils import get_logger
+from .data_ops import DataLoader, DataPreprocessor
+from .model import ContractNegotiation
 
 log = get_logger(__name__)
 

@@ -1,4 +1,5 @@
 import logging
+import pandas as pd
 from pathlib import Path
 from types import SimpleNamespace
 import gurobipy as gb
@@ -72,39 +73,66 @@ class ModelNashBargaining:
             self._build_baseload_vars()
 
     def _build_common_vars(self):
+        """Add decision variables shared by both PAP and Baseload contracts.
+
+        Nash surplus (delta_G, delta_L): utility minus disagreement point for each party.
+        Log variables (log_delta_*): auxiliary vars for linearising the log Nash product.
+        Strike price (S): the contract price negotiated between generator and load.
+        CVaR threshold (cvar_zeta_*): Value-at-Risk level per party, scalar, used in CVaR definition.
+        CVaR shortfall (eta_*): per-scenario excess loss beyond the VaR threshold, indexed by scenario.
+        """
         EPS = 1e-8
 
-        # Nash surplus above threat point: δ_i = U_i − ζ_i (must be strictly positive for log)
+        # Surplus of each party = utility under contract minus disagreement point.
+        # Strictly positive lower bound so that log(surplus) is always defined.
         self.v.delta_G = self.m.addVar(lb=EPS, name="delta_G")
         self.v.delta_L = self.m.addVar(lb=EPS, name="delta_L")
 
-        # Log-linearisation of the Nash product: log(δ_G), log(δ_L)
-        self.v.log_delta_G = self.m.addVar(lb=EPS, name="log_delta_G")
-        self.v.log_delta_L = self.m.addVar(lb=EPS, name="log_delta_L")
+        # Auxiliary vars for log-linearisation of the Nash product objective.
+        # Linked to delta_* via addGenConstrLog in _build_common_cons.
+        self.v.log_delta_G = self.m.addVar(name="log_delta_G")
+        self.v.log_delta_L = self.m.addVar(name="log_delta_L")
 
+        # Contract strike price [EUR/GWh], bounded by market-feasibility limits.
         self.v.S = self.m.addVar(
             lb=self.data.strikeprice_min,
             ub=self.data.strikeprice_max,
-            name="strike_price"
+            name="S",
         )
-        
-        # CVaR VaR-threshold (scalar auxiliary per party)
-        self.v.eta_G = self.m.addVar(lb=-gb.GRB.INFINITY, name="eta_G")
-        self.v.eta_L = self.m.addVar(lb=-gb.GRB.INFINITY, name="eta_L")
 
-        # CVaR per-scenario slack: xi_i[s] >= eta_i - earnings_i[s]  (lb=0 by definition)
-        self.v.xi_G = self.m.addVars(self.data.scenarios, lb=0.0, name="xi_G")
-        self.v.xi_L = self.m.addVars(self.data.scenarios, lb=0.0, name="xi_L")
+        # VaR threshold for each party's CVaR computation (paper: zeta^S, zeta^B).
+        # Unbounded because the threshold can be negative when losses are large.
+        self.v.cvar_zeta_G = self.m.addVar(lb=-gb.GRB.INFINITY, name="cvar_zeta_G")
+        self.v.cvar_zeta_L = self.m.addVar(lb=-gb.GRB.INFINITY, name="cvar_zeta_L")
+
+        # Per-scenario shortfall above the VaR threshold (paper: eta^S_omega, eta^B_omega).
+        # Non-negative by definition: shortfall is zero when the scenario loss is below the threshold.
+        self.v.eta_G = self.m.addVars(self.data.scenarios, lb=0.0, name="eta_G")
+        self.v.eta_L = self.m.addVars(self.data.scenarios, lb=0.0, name="eta_L")
 
         logger.info("Common variables added")
 
     def _build_pap_vars(self):
+        """Add decision variables specific to the Pay-as-Produced contract.
 
-        logger.info("Vairables specific to Pay-as-produced added")
+        Share (gamma): fraction of the generator's actual production sold under the contract.
+        """
+        # Contract share in [0, gamma_max]; bilinear with S and production in the utility expressions.
+        self.v.gamma = self.m.addVar(lb=0, ub=self.data.gamma_max, name="gamma")
+        logger.info("Variables specific to Pay-as-Produced added")
 
     def _build_baseload_vars(self):
+        """Add decision variables specific to the Baseload contract.
 
-        logger.info("Vairables specific to Baseload added")
+        Contract amount (M): fixed volume [GWh] delivered each period under the contract.
+        """
+        # Fixed delivery volume [GWh], bounded by contractually feasible range.
+        self.v.M = self.m.addVar(
+            lb=self.data.contract_amount_min,
+            ub=self.data.contract_amount_max,
+            name="M",
+        )
+        logger.info("Variables specific to Baseload added")
 
     # Build constraints
     def build_constraints(self):
@@ -154,7 +182,16 @@ class ModelNashBargaining:
 
     # Extract the results
     def _extract_results(self):
-        logger.info("Results extracted")
+        # vars(SimpleNamespace) returns the underlying __dict__ of name→gurobi_obj pairs.
+        # Only collect scalar gb.Var entries; indexed tuplediicts (eta_*) are CVaR auxiliaries
+        # and are skipped here — add a separate export if per-scenario values are needed.
+        scalars = {
+            name: var.X
+            for name, var in vars(self.v).items()
+            if isinstance(var, gb.Var)
+        }
+        pd.Series(scalars, name="value").to_csv(self.path_results_csv, header=True)
+        logger.info("Results extracted to %s", self.path_results_csv)
 
     def _save_model_files(self):
         self.m.write(str(self.path_model_lp))

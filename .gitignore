@@ -1,7 +1,6 @@
 # General
 stuff/*
 logs/*
-token.txt
 
 # Results: track top-level subfolders but not their contents
 results/single_run/*

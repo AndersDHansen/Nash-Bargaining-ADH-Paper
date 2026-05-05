@@ -9,7 +9,7 @@ run_type: single_run        # single_run | sensitivity
 
 # Apply time-value discounting to annual cash flows.
 # Annual discount rates. 0.0 = no discounting (all years weighted equally).
-discount: true
+discount: false
 D_G: 0.0
 D_L: 0.0
 
@@ -40,14 +40,11 @@ K_L_prod: 0.0
 # Generator nameplate capacity [MW]. Must match scenario_gen.capacity_mw.
 generator_contract_capacity: 30
 
-# Retail electricity price paid by load outside the contract [EUR/MWh].
-retail_price: 0.001
-
 # Strike price bounds [EUR/MWh].
 # Lower bound is a hard floor. Upper bound is computed at runtime as:
 #   strikeprice_max = strikeprice_max_factor * E_prob[price * load_capture_rate]
 strikeprice_min: 0.040
-strikeprice_max_factor: 1.2
+strikeprice_max: 0.120
 
 # Maximum fraction of production contractable under PAP (unused for baseload).
 gamma_max: 1.0

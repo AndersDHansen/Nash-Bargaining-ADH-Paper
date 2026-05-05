@@ -75,13 +75,17 @@ class ModelNashBargaining:
     def _build_common_vars(self):
         """Add decision variables shared by both PAP and Baseload contracts.
 
-        Nash surplus (delta_G, delta_L): utility minus disagreement point for each party.
-        Log variables (log_delta_*): auxiliary vars for linearising the log Nash product.
-        Strike price (S): the contract price negotiated between generator and load.
-        CVaR threshold (cvar_zeta_*): Value-at-Risk level per party, scalar, used in CVaR definition.
-        CVaR shortfall (eta_*): per-scenario excess loss beyond the VaR threshold, indexed by scenario.
+        - Nash surplus (delta_G, delta_L): utility minus disagreement point for each party.
+        - Log variables (log_delta_*): auxiliary vars for linearising the log Nash product.
+        - Strike price (S): the contract price negotiated between generator and load.
+        - CVaR threshold (cvar_zeta_*): Value-at-Risk level per party, scalar, used in CVaR definition.
+        - CVaR shortfall (eta_*): per-scenario excess loss beyond the VaR threshold, indexed by scenario.
         """
         EPS = 1e-8
+
+        # Utility of each party
+        self.v.u_G = self.m.addVar(lb=EPS, name="u_G")
+        self.v.u_L = self.m.addVar(lb=EPS, name="u_L")
 
         # Surplus of each party = utility under contract minus disagreement point.
         # Strictly positive lower bound so that log(surplus) is always defined.
@@ -107,8 +111,12 @@ class ModelNashBargaining:
 
         # Per-scenario shortfall above the VaR threshold (paper: eta^S_omega, eta^B_omega).
         # Non-negative by definition: shortfall is zero when the scenario loss is below the threshold.
-        self.v.eta_G = self.m.addVars(self.data.scenarios, lb=0.0, name="eta_G")
-        self.v.eta_L = self.m.addVars(self.data.scenarios, lb=0.0, name="eta_L")
+        self.v.eta_G = self.m.addMVar(
+            shape=self.data.num_scenarios, lb=0.0, name="eta_G"
+        )
+        self.v.eta_L = self.m.addMVar(
+            shape=self.data.num_scenarios, lb=0.0, name="eta_L"
+        )
 
         logger.info("Common variables added")
 
@@ -145,6 +153,13 @@ class ModelNashBargaining:
 
     def _build_common_cons(self):
 
+        # Natural log constraints
+        self.m.addGenConstrLog(
+            self.v.delta_G, self.v.log_delta_G, name="cons_log_delta_G"
+        )
+        self.m.addGenConstrLog(
+            self.v.delta_L, self.v.log_delta_L, name="cons_log_delta_L"
+        )
         logger.info("Common constraints added")
 
     def _build_pap_cons(self):
@@ -152,7 +167,49 @@ class ModelNashBargaining:
         logger.info("Constraints specific to Pay-as-produced added")
 
     def _build_baseload_cons(self):
+        
+        # Utility constraints
+        # First term of the utility: matrix shape (t, omega)
+        earnings_G_matrix = (
+            self.data.capture_price_G * self.data.production_G
+            + (self.v.S - self.data.price_G) * self.v.M
+        )
 
+        earnings_L_matrix = (
+            -self.data.capture_price_L * self.data.production_L
+            + (self.data.price_L - self.v.S) * self.v.M
+        )
+
+        # Probability-weighted CVaR shortfall — MVar supports @ directly
+        eta_G_sum = self.data.prob @ self.v.eta_G
+        eta_L_sum = self.data.prob @ self.v.eta_L
+
+        # Utility = expected profit + risk-aversion-weighted left-tail CVaR
+        self.m.addConstr(
+            self.v.u_G
+            == (1 - self.data.A_G) * self.data.prob @ earnings_G_matrix.sum(axis=0)
+            + self.data.A_G * (self.v.cvar_zeta_G - (1 / (1 - self.data.alpha)) * eta_G_sum),
+            name="u_G_baseload",
+        )
+        self.m.addConstr(
+            self.v.u_L
+            == (1 - self.data.A_L) * self.data.prob @ earnings_L_matrix.sum(axis=0)
+            + self.data.A_L * (self.v.cvar_zeta_L - (1 / (1 - self.data.alpha)) * eta_L_sum),
+            name="u_L_baseload",
+        )
+
+        # Nash surplus = utility under contract minus disagreement point (precomputed in data_loader)
+        self.m.addConstr(
+            self.v.delta_G == self.v.u_G - self.data.zeta_G, name="nash_surplus_G"
+        )
+        self.m.addConstr(
+            self.v.delta_L == self.v.u_L - self.data.zeta_L, name="nash_surplus_L"
+        )
+
+
+        # CVar constraints
+        # TODO!!!
+        
         logger.info("Constraints specific to Baseload added")
 
     # Build the objective funtion
@@ -173,12 +230,38 @@ class ModelNashBargaining:
     def solve(self):
         logger.info("Solving the model...")
         self.m.optimize()
+
+        if self.m.Status == gb.GRB.INFEASIBLE:
+            logger.error("Model is infeasible. Computing IIS...")
+            self._compute_iis()
+            return
+
         if self.m.Status != gb.GRB.OPTIMAL:
             logger.warning("Model did not reach optimality. Status: %d", self.m.Status)
             return
+
         logger.info("Model solved. Extracting results...")
         self._extract_results()
         self._save_model_files()
+
+    def _compute_iis(self):
+        self.m.computeIIS()
+        path_iis = self.path_sim / "model.ilp"
+        self.m.write(str(path_iis))
+        logger.error("IIS written to %s", path_iis)
+
+        logger.error("Infeasible constraints:")
+        for c in self.m.getConstrs():
+            if c.IISConstr:
+                logger.error("  CONSTR  %s", c.ConstrName)
+        for v in self.m.getVars():
+            if v.IISLB:
+                logger.error("  LB      %s >= %g", v.VarName, v.LB)
+            if v.IISUB:
+                logger.error("  UB      %s <= %g", v.VarName, v.UB)
+        for gc in self.m.getGenConstrs():
+            if gc.IISGenConstr:
+                logger.error("  GENCON  %s", gc.GenConstrName)
 
     # Extract the results
     def _extract_results(self):
@@ -186,9 +269,7 @@ class ModelNashBargaining:
         # Only collect scalar gb.Var entries; indexed tuplediicts (eta_*) are CVaR auxiliaries
         # and are skipped here — add a separate export if per-scenario values are needed.
         scalars = {
-            name: var.X
-            for name, var in vars(self.v).items()
-            if isinstance(var, gb.Var)
+            name: var.X for name, var in vars(self.v).items() if isinstance(var, gb.Var)
         }
         pd.Series(scalars, name="value").to_csv(self.path_results_csv, header=True)
         logger.info("Results extracted to %s", self.path_results_csv)

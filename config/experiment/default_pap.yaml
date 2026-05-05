@@ -39,8 +39,6 @@ K_L_prod: 0.0
 # Generator nameplate capacity [MW]. Must match scenario_gen.capacity_mw.
 generator_contract_capacity: 30
 
-# Retail electricity price paid by load outside the contract [EUR/MWh].
-retail_price: 0.001
 
 # Strike price bounds [EUR/MWh].
 # Lower bound is a hard floor. Upper bound is computed at runtime as:

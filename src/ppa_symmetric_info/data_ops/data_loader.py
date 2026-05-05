@@ -58,9 +58,8 @@ class DataLoader:
 
         # Contract bounds
         self.generator_contract_capacity = exp.generator_contract_capacity
-        self.retail_price = exp.retail_price
         self.strikeprice_min = exp.strikeprice_min
-        self._strikeprice_max_factor = exp.strikeprice_max_factor
+        self.strikeprice_max = exp.strikeprice_max
         self.gamma_max = exp.gamma_max
         self.contract_amount_min = 0
         self.contract_amount_max = self.generator_contract_capacity * 8760 * 1e-3  # GWh/year
@@ -92,10 +91,7 @@ class DataLoader:
         cols = self.price.columns
         for df in (self.production, self.capture_rate, self.load, self.load_cr):
             df.columns = cols
-
-        # @AndersDHansen Here we are dealing with strike_price min and max. are these values to be calculated, or input params?
-        capture_price_load = self.price * self.load_cr
-        self.strikeprice_max = float((capture_price_load * self.prob).sum(axis=1).mean()) * self._strikeprice_max_factor
+  
         log.info("Strike price bounds: %.4f to %.4f", self.strikeprice_min, self.strikeprice_max)
 
     def _prepare_model_inputs(self):
@@ -124,11 +120,21 @@ class DataLoader:
         self.production_G = production + self.K_G_prod  * expected_production   # Belief of G
         self.production_L = production + self.K_L_prod  * expected_production   # Belief of L
 
-        # Capture price under true distribution (used in result extraction)
-        self.capture_price_G     = capture_rate * price
+        # --- Capture prices (true distribution, used for post-processing) ---
+        # Seller (generator): revenue rate per unit production
+        self.capture_price_G     = capture_rate * price          # (years, scenarios)
         self.capture_price_G_avg = (self.capture_price_G * prob).sum(axis=1, keepdims=True)
 
-        # No-contract per-scenario earnings, summed over years (with discounting)
+        # Buyer (load): cost rate per unit consumption
+        self.capture_price_L     = load_cr * price               # (years, scenarios)
+        self.capture_price_L_avg = (self.capture_price_L * prob).sum(axis=1, keepdims=True)
+
+        # --- Biased capture prices (each party's belief, used in model constraints) ---
+        # Generator believes prices are price_G; load believes prices are price_L
+        self.capture_price_G_biased = capture_rate * self.price_G  # (years, scenarios)
+        self.capture_price_L_biased = load_cr      * self.price_L  # (years, scenarios)
+
+        # --- No-contract per-scenario earnings, summed over years (with discounting) ---
         # Generator: sells renewable production at capture rate × biased price
         self.earnings_nc_G = (
             self.discount_factors_G * capture_rate * self.price_G * self.production_G
@@ -139,13 +145,28 @@ class DataLoader:
             self.discount_factors_L * load * (-load_cr * self.price_L)
         ).sum(axis=0)  # (scenarios,)
 
-        # CVaR of no-contract earnings (left tail, worst outcomes)
+        # --- Precomputed terms for model constraints (Baseload) ---
+        # Discounted price sums per scenario: sum_t disc_t * lambda^i_{t,omega}
+        self.lambda_disc_G = (self.discount_factors_G * self.price_G).sum(axis=0)  # (scenarios,)
+        self.lambda_disc_L = (self.discount_factors_L * self.price_L).sum(axis=0)  # (scenarios,)
+
+        # Sum of discount factors: sum_t disc_t  (scalar coefficient on S*M in earnings)
+        self.disc_G_sum = float(self.discount_factors_G.sum())
+        self.disc_L_sum = float(self.discount_factors_L.sum())
+
+        # Probability-weighted expected values (scalar, for objective expressions)
+        self.E_earnings_nc_G  = float((prob * self.earnings_nc_G).sum())
+        self.E_earnings_nc_L  = float((prob * self.earnings_nc_L).sum())
+        self.E_lambda_disc_G  = float((prob * self.lambda_disc_G).sum())
+        self.E_lambda_disc_L  = float((prob * self.lambda_disc_L).sum())
+
+        # --- CVaR of no-contract earnings (left tail, worst outcomes) ---
         cvar_nc_G = self._cvar_left(self.earnings_nc_G, prob)
         cvar_nc_L = self._cvar_left(self.earnings_nc_L, prob)
 
         # Disagreement points: U_i = (1 - A_i)*E[earnings] + A_i*CVaR[earnings]
-        self.zeta_G = (1 - self.A_G) * (prob * self.earnings_nc_G).sum() + self.A_G * cvar_nc_G
-        self.zeta_L = (1 - self.A_L) * (prob * self.earnings_nc_L).sum() + self.A_L * cvar_nc_L
+        self.zeta_G = (1 - self.A_G) * self.E_earnings_nc_G + self.A_G * cvar_nc_G
+        self.zeta_L = (1 - self.A_L) * self.E_earnings_nc_L + self.A_L * cvar_nc_L
 
         log.info("Disagreement points: zeta_G=%.4f, zeta_L=%.4f", self.zeta_G, self.zeta_L)
 

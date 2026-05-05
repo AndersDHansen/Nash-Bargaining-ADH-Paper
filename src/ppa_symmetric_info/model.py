@@ -1,5 +1,6 @@
 import logging
 from pathlib import Path
+from types import SimpleNamespace
 import gurobipy as gb
 from omegaconf import OmegaConf
 from .utils import get_logger
@@ -10,16 +11,27 @@ logger = get_logger(__name__)
 class ModelNashBargaining:
     def __init__(self, data):
         self.data = data
-        self.m = gb.Model()
+
+        self._setup_gurobi_model()
         self._directories()
 
         logger.info("Nash Barganining model initalized")
 
+    # Runner function to sequentially execute the workflow
     def run(self):
         self.build_variables()
         self.build_constraints()
         self.build_obj_func()
         self.solve()
+
+    def _setup_gurobi_model(self):
+        self.m = gb.Model()
+        self.m.Params.NonConvex = 2  # Allow bilinear terms (S×M, gamma×S)
+        self.m.Params.FeasibilityTol = 1e-6  # Constraint violation tolerance
+        self.m.Params.OutputFlag = 0  # Suppress Gurobi console output
+        self.m.Params.TimeLimit = 420  # Hard stop at 7 minutes
+        self.m.Params.ObjScale = 1e-6  # Rescale log objective for numerical stability
+        self.v = SimpleNamespace()  # Namespace for all Gurobi decision variables
 
     def _directories(self):
         # Path hierarchy — explicit attributes for every level
@@ -51,7 +63,7 @@ class ModelNashBargaining:
         logging.getLogger().addHandler(handler)
 
     def build_variables(self):
-        self._build_gen_vars()
+        self._build_common_vars()
 
         if self.data.contract_type == "pap":
             self._build_pap_vars()
@@ -59,9 +71,32 @@ class ModelNashBargaining:
         elif self.data.contract_type == "baseload":
             self._build_baseload_vars()
 
-    def _build_gen_vars(self):
+    def _build_common_vars(self):
+        EPS = 1e-8
 
-        logger.info("General variables added")
+        # Nash surplus above threat point: δ_i = U_i − ζ_i (must be strictly positive for log)
+        self.v.delta_G = self.m.addVar(lb=EPS, name="delta_G")
+        self.v.delta_L = self.m.addVar(lb=EPS, name="delta_L")
+
+        # Log-linearisation of the Nash product: log(δ_G), log(δ_L)
+        self.v.log_delta_G = self.m.addVar(lb=EPS, name="log_delta_G")
+        self.v.log_delta_L = self.m.addVar(lb=EPS, name="log_delta_L")
+
+        self.v.S = self.m.addVar(
+            lb=self.data.strikeprice_min,
+            ub=self.data.strikeprice_max,
+            name="strike_price"
+        )
+        
+        # CVaR VaR-threshold (scalar auxiliary per party)
+        self.v.eta_G = self.m.addVar(lb=-gb.GRB.INFINITY, name="eta_G")
+        self.v.eta_L = self.m.addVar(lb=-gb.GRB.INFINITY, name="eta_L")
+
+        # CVaR per-scenario slack: xi_i[s] >= eta_i - earnings_i[s]  (lb=0 by definition)
+        self.v.xi_G = self.m.addVars(self.data.scenarios, lb=0.0, name="xi_G")
+        self.v.xi_L = self.m.addVars(self.data.scenarios, lb=0.0, name="xi_L")
+
+        logger.info("Common variables added")
 
     def _build_pap_vars(self):
 

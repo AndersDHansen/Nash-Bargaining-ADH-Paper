@@ -1,7 +1,7 @@
 defaults:
   - paths: default          # File system paths for raw data, processed outputs, results
   - scenario_gen: default   # Monte Carlo generation and reduction settings
-  - experiment: baseload    # Full run spec: contract + model params. Switch to pap for PAP.
+  - experiment: default_baseload    # Full run spec: contract + model params. Switch to pap for PAP.
   - sensitivity: default    # Sensitivity analysis grid
   - _self_
 

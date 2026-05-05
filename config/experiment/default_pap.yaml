@@ -3,7 +3,7 @@
 # contract settings, model parameters, and output routing in one place.
 
 # Output routing
-sim_name: base_pap
+sim_name: default_pap
 run_type: single_run        # single_run | sensitivity
 
 # Apply time-value discounting to annual cash flows.

@@ -44,7 +44,7 @@ generator_contract_capacity: 30
 # Lower bound is a hard floor. Upper bound is computed at runtime as:
 #   strikeprice_max = strikeprice_max_factor * E_prob[price * load_capture_rate]
 strikeprice_min: 0.040
-strikeprice_max: 0.120
+strikeprice_max: 0.200
 
 # Maximum fraction of production contractable under PAP (unused for baseload).
 gamma_max: 1.0

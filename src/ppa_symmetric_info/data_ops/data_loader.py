@@ -101,7 +101,8 @@ class DataLoader:
         load       = self.load.to_numpy()
         load_cr    = self.load_cr.to_numpy()
 
-        self.load_np = load  # numpy alias — use this in model constraints
+        self.load_np = load          # numpy alias — use this in model constraints
+        self.capture_rate_np = capture_rate  # needed for PAP contracted term in load utility
         prob       = self.prob                    # (scenarios,)
 
         # Discount factors — shape (years, 1) so they broadcast over scenarios
@@ -146,6 +147,25 @@ class DataLoader:
         self.earnings_nc_L = (
             self.discount_factors_L * load * (-load_cr * self.price_L)
         ).sum(axis=0)  # (scenarios,)
+
+        # --- Precomputed terms for model constraints (PAP) ---
+        # Per-scenario discounted production sum for G: sum_t disc_t * P^G_{t,omega}
+        # Coefficient on gamma*S in both the utility and CVaR constraints.
+        self.pap_prod_disc_G = (self.discount_factors_G * self.production_G).sum(axis=0)  # (scenarios,)
+
+        # Per-scenario coefficient on gamma in load's utility/CVaR: sum_t disc_t * P^G_{t,omega} * CR^G_{t,omega} * lambda^L_{t,omega}
+        # Load values the contracted wind volume at the generator's capture rate × load's biased price.
+        self.pap_gamma_coeff_L = (
+            self.discount_factors_L * self.production_G * capture_rate * self.price_L
+        ).sum(axis=0)  # (scenarios,)
+
+        # Per-scenario coefficient on gamma*S in load's utility/CVaR: -sum_t disc_t * P^G_{t,omega}
+        self.pap_prod_disc_L = (self.discount_factors_L * self.production_G).sum(axis=0)  # (scenarios,)
+
+        # Probability-weighted scalars for PAP utility constraints
+        self.E_pap_prod_disc_G  = float((prob * self.pap_prod_disc_G).sum())
+        self.E_pap_gamma_coeff_L = float((prob * self.pap_gamma_coeff_L).sum())
+        self.E_pap_prod_disc_L  = float((prob * self.pap_prod_disc_L).sum())
 
         # --- Precomputed terms for model constraints (Baseload) ---
         # Discounted price sums per scenario: sum_t disc_t * lambda^i_{t,omega}

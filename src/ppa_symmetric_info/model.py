@@ -166,6 +166,80 @@ class ModelNashBargaining:
 
     def _build_pap_cons(self):
 
+        # Generator earnings: uncontracted share sold at capture price, contracted share at S.
+        # Eq 4.19: (1-gamma)*CR^G*lambda^G*P^G + gamma*S*P^G, discounted over years.
+        earnings_G_matrix = self.data.discount_factors_G * (
+            (1 - self.v.gamma) * self.data.capture_price_G_biased * self.data.production_G
+            + self.v.gamma * self.v.S * self.data.production_G
+        )
+
+        # Load earnings: full uncontracted cost + benefit from PAP contract.
+        # Eq 4.20: -P^L*CR^L*lambda^L + gamma*P^G*(CR^G*lambda^L - S), discounted over years.
+        # Contracted term uses generator's production (P^G) and capture rate, valued at load's
+        # biased price (price_L). capture_rate_np is needed here — not available via biased products.
+        earnings_L_matrix = self.data.discount_factors_L * (
+            -self.data.capture_price_L_biased * self.data.load_np
+            + self.v.gamma * self.data.production_G
+            * (self.data.capture_rate_np * self.data.price_L - self.v.S)
+        )
+
+        # Utility = expected earnings + risk-aversion-weighted CVaR (Rockafellar-Uryasev).
+        self.m.addConstr(
+            self.v.u_G
+            == (1 - self.data.A_G) * self.data.prob @ earnings_G_matrix.sum(axis=0)
+            + self.data.A_G
+            * (
+                self.v.zeta_G
+                - (1 / (1 - self.data.alpha)) * (self.data.prob @ self.v.eta_G)
+            ),
+            name="u_G_pap",
+        )
+        self.m.addConstr(
+            self.v.u_L
+            == (1 - self.data.A_L) * self.data.prob @ earnings_L_matrix.sum(axis=0)
+            + self.data.A_L
+            * (
+                self.v.zeta_L
+                - (1 / (1 - self.data.alpha)) * (self.data.prob @ self.v.eta_L)
+            ),
+            name="u_L_pap",
+        )
+
+        # Nash surplus = utility under contract minus disagreement point (precomputed in data_loader)
+        self.m.addConstr(
+            self.v.delta_G == self.v.u_G - self.data.zeta_G, name="nash_surplus_G_pap"
+        )
+        self.m.addConstr(
+            self.v.delta_L == self.v.u_L - self.data.zeta_L, name="nash_surplus_L_pap"
+        )
+
+        # CVaR constraints — one per scenario (bilinear gamma×S handled by NonConvex=2).
+        # earnings_G[s] = (1-gamma)*earnings_nc_G[s] + gamma*S*pap_prod_disc_G[s]
+        # eta_G[s] >= zeta_G - earnings_G[s]
+        self.m.addConstrs(
+            (
+                self.v.eta_G[s]
+                >= self.v.zeta_G
+                - self.data.earnings_nc_G[s]
+                - self.v.gamma * (self.v.S * self.data.pap_prod_disc_G[s] - self.data.earnings_nc_G[s])
+                for s in range(self.data.num_scenarios)
+            ),
+            name="eta_G_pap_cvar",
+        )
+        # earnings_L[s] = earnings_nc_L[s] + gamma*pap_gamma_coeff_L[s] - gamma*S*pap_prod_disc_L[s]
+        # eta_L[s] >= zeta_L - earnings_L[s]
+        self.m.addConstrs(
+            (
+                self.v.eta_L[s]
+                >= self.v.zeta_L
+                - self.data.earnings_nc_L[s]
+                - self.v.gamma * self.data.pap_gamma_coeff_L[s]
+                + self.v.gamma * self.v.S * self.data.pap_prod_disc_L[s]
+                for s in range(self.data.num_scenarios)
+            ),
+            name="eta_L_pap_cvar",
+        )
+
         logger.info("Constraints specific to Pay-as-produced added")
 
     def _build_baseload_cons(self):
@@ -208,10 +282,10 @@ class ModelNashBargaining:
 
         # Nash surplus = utility under contract minus disagreement point (precomputed in data_loader)
         self.m.addConstr(
-            self.v.delta_G == self.v.u_G - self.data.zeta_G, name="nash_surplus_G"
+            self.v.delta_G == self.v.u_G - self.data.zeta_G, name="nash_surplus_G_baseload"
         )
         self.m.addConstr(
-            self.v.delta_L == self.v.u_L - self.data.zeta_L, name="nash_surplus_L"
+            self.v.delta_L == self.v.u_L - self.data.zeta_L, name="nash_surplus_L_baseload"
         )
 
         # CVaR constraints — one per scenario (bilinear S×M handled by NonConvex=2).
@@ -224,9 +298,10 @@ class ModelNashBargaining:
                 - self.data.earnings_nc_G[s]
                 - (self.data.disc_G_sum * self.v.S - self.data.lambda_disc_G[s])
                 * self.v.M
+                # Not proud of this for loop but MVar do not accept NonLinear expression, hence this temp solution
                 for s in range(self.data.num_scenarios)
             ),
-            name="eta_G_cvar",
+            name="eta_G_baseload_cvar",
         )
         # earnings_L[s] = earnings_nc_L[s] + (lambda_disc_L[s] - disc_L_sum * S) * M
         # eta_L[s] >= zeta_L - earnings_L[s]
@@ -237,9 +312,10 @@ class ModelNashBargaining:
                 - self.data.earnings_nc_L[s]
                 - (self.data.lambda_disc_L[s] - self.data.disc_L_sum * self.v.S)
                 * self.v.M
+                # I am also not proud of this for loop, but I have not better alternatives
                 for s in range(self.data.num_scenarios)
             ),
-            name="eta_L_cvar",
+            name="eta_L_baseload_cvar",
         )
 
         logger.info("Constraints specific to Baseload added")
@@ -248,7 +324,10 @@ class ModelNashBargaining:
     def build_obj_func(self):
 
         self.m.setObjective(
-            (self.data.tau_G * self.v.log_delta_G + self.data.tau_L * self.v.log_delta_L),
+            (
+                self.data.tau_G * self.v.log_delta_G
+                + self.data.tau_L * self.v.log_delta_L
+            ),
             gb.GRB.MAXIMIZE,
         )
         logger.info("Objective function created")
@@ -305,3 +384,4 @@ class ModelNashBargaining:
         self.m.write(str(self.path_model_lp))
         self.m.write(str(self.path_model_mps))
         logger.info("Model files saved to %s", self.path_sim)
+

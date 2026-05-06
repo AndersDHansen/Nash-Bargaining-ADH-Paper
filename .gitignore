@@ -1,6 +1,7 @@
 # General
 stuff/*
 logs/*
+paper/*
 
 # Results: track top-level subfolders but not their contents
 results/single_run/*

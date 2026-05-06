@@ -100,6 +100,8 @@ class DataLoader:
         capture_rate = self.capture_rate.to_numpy()
         load       = self.load.to_numpy()
         load_cr    = self.load_cr.to_numpy()
+
+        self.load_np = load  # numpy alias — use this in model constraints
         prob       = self.prob                    # (scenarios,)
 
         # Discount factors — shape (years, 1) so they broadcast over scenarios

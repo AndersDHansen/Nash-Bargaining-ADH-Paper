@@ -83,9 +83,10 @@ class ModelNashBargaining:
         """
         EPS = 1e-8
 
-        # Utility of each party
-        self.v.u_G = self.m.addVar(lb=EPS, name="u_G")
-        self.v.u_L = self.m.addVar(lb=EPS, name="u_L")
+        # Utility of each party — unbounded below because load utility is a net cost (negative).
+        # Positivity is enforced on the Nash surplus (delta_*) not on the utility itself.
+        self.v.u_G = self.m.addVar(lb=-gb.GRB.INFINITY, name="u_G")
+        self.v.u_L = self.m.addVar(lb=-gb.GRB.INFINITY, name="u_L")
 
         # Surplus of each party = utility under contract minus disagreement point.
         # Strictly positive lower bound so that log(surplus) is always defined.
@@ -93,9 +94,10 @@ class ModelNashBargaining:
         self.v.delta_L = self.m.addVar(lb=EPS, name="delta_L")
 
         # Auxiliary vars for log-linearisation of the Nash product objective.
+        # Unbounded below: log(delta) can be negative if delta < 1.
         # Linked to delta_* via addGenConstrLog in _build_common_cons.
-        self.v.log_delta_G = self.m.addVar(name="log_delta_G")
-        self.v.log_delta_L = self.m.addVar(name="log_delta_L")
+        self.v.log_delta_G = self.m.addVar(lb=-gb.GRB.INFINITY, name="log_delta_G")
+        self.v.log_delta_L = self.m.addVar(lb=-gb.GRB.INFINITY, name="log_delta_L")
 
         # Contract strike price [EUR/GWh], bounded by market-feasibility limits.
         self.v.S = self.m.addVar(
@@ -106,8 +108,8 @@ class ModelNashBargaining:
 
         # VaR threshold for each party's CVaR computation (paper: zeta^S, zeta^B).
         # Unbounded because the threshold can be negative when losses are large.
-        self.v.cvar_zeta_G = self.m.addVar(lb=-gb.GRB.INFINITY, name="cvar_zeta_G")
-        self.v.cvar_zeta_L = self.m.addVar(lb=-gb.GRB.INFINITY, name="cvar_zeta_L")
+        self.v.zeta_G = self.m.addVar(lb=-gb.GRB.INFINITY, name="zeta_G")
+        self.v.zeta_L = self.m.addVar(lb=-gb.GRB.INFINITY, name="zeta_L")
 
         # Per-scenario shortfall above the VaR threshold (paper: eta^S_omega, eta^B_omega).
         # Non-negative by definition: shortfall is zero when the scenario loss is below the threshold.
@@ -167,34 +169,32 @@ class ModelNashBargaining:
         logger.info("Constraints specific to Pay-as-produced added")
 
     def _build_baseload_cons(self):
-        
-        # Utility constraints
-        # First term of the utility: matrix shape (t, omega)
-        earnings_G_matrix = (
-            self.data.capture_price_G * self.data.production_G
+
+        # Utility constraints — shape (years, scenarios), summed over years then weighted by prob.
+        # Uses biased capture prices (asymmetric info) and discount factors, matching the thesis eq.
+        earnings_G_matrix = self.data.discount_factors_G * (
+            self.data.capture_price_G_biased * self.data.production_G
             + (self.v.S - self.data.price_G) * self.v.M
         )
 
-        earnings_L_matrix = (
-            -self.data.capture_price_L * self.data.production_L
+        # Load's uncontracted cost uses its own consumption (load) at the biased capture price,
+        # not the generator's production (production_L is a PAP-specific quantity).
+        earnings_L_matrix = self.data.discount_factors_L * (
+            -self.data.capture_price_L_biased * self.data.load_np
             + (self.data.price_L - self.v.S) * self.v.M
         )
-
-        # Probability-weighted CVaR shortfall — MVar supports @ directly
-        eta_G_sum = self.data.prob @ self.v.eta_G
-        eta_L_sum = self.data.prob @ self.v.eta_L
 
         # Utility = expected profit + risk-aversion-weighted left-tail CVaR
         self.m.addConstr(
             self.v.u_G
             == (1 - self.data.A_G) * self.data.prob @ earnings_G_matrix.sum(axis=0)
-            + self.data.A_G * (self.v.cvar_zeta_G - (1 / (1 - self.data.alpha)) * eta_G_sum),
+            + self.data.A_G * (self.v.zeta_G - (1 / (1 - self.data.alpha)) * (self.data.prob @ self.v.eta_G)),
             name="u_G_baseload",
         )
         self.m.addConstr(
             self.v.u_L
             == (1 - self.data.A_L) * self.data.prob @ earnings_L_matrix.sum(axis=0)
-            + self.data.A_L * (self.v.cvar_zeta_L - (1 / (1 - self.data.alpha)) * eta_L_sum),
+            + self.data.A_L * (self.v.zeta_L - (1 / (1 - self.data.alpha)) * (self.data.prob @ self.v.eta_L)),
             name="u_L_baseload",
         )
 
@@ -207,8 +207,25 @@ class ModelNashBargaining:
         )
 
 
-        # CVar constraints
-        # TODO!!!
+        # CVaR constraints — one per scenario (bilinear S×M handled by NonConvex=2).
+        # earnings_G[s] = earnings_nc_G[s] + (disc_G_sum * S - lambda_disc_G[s]) * M
+        # eta_G[s] >= zeta_G - earnings_G[s]
+        self.m.addConstrs(
+            (self.v.eta_G[s] >= self.v.zeta_G
+             - self.data.earnings_nc_G[s]
+             - (self.data.disc_G_sum * self.v.S - self.data.lambda_disc_G[s]) * self.v.M
+             for s in range(self.data.num_scenarios)),
+            name="eta_G_cvar",
+        )
+        # earnings_L[s] = earnings_nc_L[s] + (lambda_disc_L[s] - disc_L_sum * S) * M
+        # eta_L[s] >= zeta_L - earnings_L[s]
+        self.m.addConstrs(
+            (self.v.eta_L[s] >= self.v.zeta_L
+             - self.data.earnings_nc_L[s]
+             - (self.data.lambda_disc_L[s] - self.data.disc_L_sum * self.v.S) * self.v.M
+             for s in range(self.data.num_scenarios)),
+            name="eta_L_cvar",
+        )
         
         logger.info("Constraints specific to Baseload added")
 

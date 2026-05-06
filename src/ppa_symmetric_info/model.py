@@ -188,13 +188,21 @@ class ModelNashBargaining:
         self.m.addConstr(
             self.v.u_G
             == (1 - self.data.A_G) * self.data.prob @ earnings_G_matrix.sum(axis=0)
-            + self.data.A_G * (self.v.zeta_G - (1 / (1 - self.data.alpha)) * (self.data.prob @ self.v.eta_G)),
+            + self.data.A_G
+            * (
+                self.v.zeta_G
+                - (1 / (1 - self.data.alpha)) * (self.data.prob @ self.v.eta_G)
+            ),
             name="u_G_baseload",
         )
         self.m.addConstr(
             self.v.u_L
             == (1 - self.data.A_L) * self.data.prob @ earnings_L_matrix.sum(axis=0)
-            + self.data.A_L * (self.v.zeta_L - (1 / (1 - self.data.alpha)) * (self.data.prob @ self.v.eta_L)),
+            + self.data.A_L
+            * (
+                self.v.zeta_L
+                - (1 / (1 - self.data.alpha)) * (self.data.prob @ self.v.eta_L)
+            ),
             name="u_L_baseload",
         )
 
@@ -206,42 +214,44 @@ class ModelNashBargaining:
             self.v.delta_L == self.v.u_L - self.data.zeta_L, name="nash_surplus_L"
         )
 
-
         # CVaR constraints — one per scenario (bilinear S×M handled by NonConvex=2).
         # earnings_G[s] = earnings_nc_G[s] + (disc_G_sum * S - lambda_disc_G[s]) * M
         # eta_G[s] >= zeta_G - earnings_G[s]
         self.m.addConstrs(
-            (self.v.eta_G[s] >= self.v.zeta_G
-             - self.data.earnings_nc_G[s]
-             - (self.data.disc_G_sum * self.v.S - self.data.lambda_disc_G[s]) * self.v.M
-             for s in range(self.data.num_scenarios)),
+            (
+                self.v.eta_G[s]
+                >= self.v.zeta_G
+                - self.data.earnings_nc_G[s]
+                - (self.data.disc_G_sum * self.v.S - self.data.lambda_disc_G[s])
+                * self.v.M
+                for s in range(self.data.num_scenarios)
+            ),
             name="eta_G_cvar",
         )
         # earnings_L[s] = earnings_nc_L[s] + (lambda_disc_L[s] - disc_L_sum * S) * M
         # eta_L[s] >= zeta_L - earnings_L[s]
         self.m.addConstrs(
-            (self.v.eta_L[s] >= self.v.zeta_L
-             - self.data.earnings_nc_L[s]
-             - (self.data.lambda_disc_L[s] - self.data.disc_L_sum * self.v.S) * self.v.M
-             for s in range(self.data.num_scenarios)),
+            (
+                self.v.eta_L[s]
+                >= self.v.zeta_L
+                - self.data.earnings_nc_L[s]
+                - (self.data.lambda_disc_L[s] - self.data.disc_L_sum * self.v.S)
+                * self.v.M
+                for s in range(self.data.num_scenarios)
+            ),
             name="eta_L_cvar",
         )
-        
+
         logger.info("Constraints specific to Baseload added")
 
     # Build the objective funtion
     def build_obj_func(self):
 
-        if self.data.contract_type == "pap":
-            self._build_obj_pap()
-        elif self.data.contract_type == "baseload":
-            self._build_obj_baseload()
-
-    def _build_obj_pap(self):
-        logger.info("Objective created for PAP contract")
-
-    def _build_obj_baseload(self):
-        logger.info("Objective created for Baseload contract")
+        self.m.setObjective(
+            (self.data.tau_G * self.v.log_delta_G + self.data.tau_L * self.v.log_delta_L),
+            gb.GRB.MAXIMIZE,
+        )
+        logger.info("Objective function created")
 
     # Solve the actual model
     def solve(self):

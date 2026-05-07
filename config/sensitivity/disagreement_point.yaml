@@ -1,0 +1,5 @@
+# Sensitivity: check how the NBS solution shifts when d_G is forced to zero.
+# Sanity check only — not intended for publication.
+type: disagreement_point
+
+d_G_override: 0.0   # scalar; replaces the computed disagreement point for the generator

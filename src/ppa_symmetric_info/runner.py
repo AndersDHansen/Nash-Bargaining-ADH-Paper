@@ -6,7 +6,7 @@ log = get_logger(__name__)
 
 
 class Runner:
-    """Orchestrates the full modelling pipeline.
+    """The workflow manager of the full modelling pipeline.
 
     Stages run in order:
       1. preprocess_data  — generate and reduce Monte Carlo scenarios (skipped if cached)

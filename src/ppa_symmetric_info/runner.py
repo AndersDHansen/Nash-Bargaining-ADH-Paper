@@ -1,5 +1,5 @@
 from .utils import get_logger
-from .data_ops import DataLoader, DataPreprocessor, DataPostprocessor
+from .data_ops import DataLoader, DataPreprocessor, DataPostprocessor, run_sensitivity
 from .model import ModelNashBargaining
 
 log = get_logger(__name__)
@@ -9,14 +9,13 @@ class Runner:
     """The workflow manager of the full modelling pipeline.
 
     Stages run in order:
-      1. preprocess_data  — generate and reduce Monte Carlo scenarios (skipped if cached)
-      2. load_data        — read scenario CSVs and config into a DataLoader
-      3. solve_nbs_model  — build and solve the Nash Bargaining model with Gurobi
-      4. export_results   — write results to CSV / JSON
+      1. preprocess_data   — generate and reduce Monte Carlo scenarios (skipped if cached)
+      2. load_data         — read scenario CSVs and config into a DataLoader
+      3. solve_nbs_model   — build and solve the Nash Bargaining model with Gurobi
+      4. postprocess_data  — extract and save results
       5. visualize_results — produce plots
 
-    For a single base-case run, call run(). Sensitivity analysis will wrap
-    stages 3-4 in a parameter loop on top of the same DataLoader instance.
+    For sensitivity analysis, stages 2-4 are delegated to run_sensitivity().
     """
 
     def __init__(self, config):
@@ -37,29 +36,22 @@ class Runner:
             self.sensitivity_run()
 
     def single_run(self):
+        """Run the base-case pipeline: load data, solve, postprocess, visualise."""
         self.load_data()
         self.solve_nbs_model()
         self.postprocess_data()
         self.visualize_results()
-        
+
     def sensitivity_run(self):
-        # TODO: build grid from self.config.sensitivity, loop over points
-        raise NotImplementedError("sensitivity_run not yet implemented")
-        
+        """Run the sensitivity sweep defined in config.sensitivity."""
+        run_sensitivity(self.config)
 
     def preprocess_data(self):
-        """Generate Monte Carlo scenarios and reduce to representatives.
-
-        Checks for a cached result first and skips generation if already done.
-        """
+        """Generate Monte Carlo scenarios and reduce to representatives."""
         DataPreprocessor(self.config).run()
 
     def load_data(self):
-        """Read scenario CSVs and all config parameters into a DataLoader.
-
-        After this step, self.data holds the scenario matrices and every
-        scalar the model needs. Nothing downstream touches the config directly.
-        """
+        """Read scenario CSVs and config into a DataLoader."""
         self.data = DataLoader(self.config)
 
     def solve_nbs_model(self):

@@ -23,7 +23,9 @@ output:
   run_dir: "${hydra:runtime.output_dir}"
 
 # Static results folder. Experiment subfolder is appended in Python using experiment_name.
-# Full path: {results.dir}/{experiment_name}/
+# Full path (single run):   {results.dir}/single_run/{sim_name}/
+# Full path (sensitivity):  {results.dir}/sensitivity/{sim_name}_{sensitivity_type}/
 results:
-  dir:     "${paths.root}/results"
-  plots:   "figures"
+  dir:            "${paths.root}/results"
+  sensitivity_dir: "${paths.root}/results/sensitivity"
+  plots:          "figures"

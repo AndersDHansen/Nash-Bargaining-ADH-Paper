@@ -10,13 +10,11 @@ log = logging.getLogger(__name__)
 @hydra.main(version_base=None, config_path="config", config_name="config")
 def main(cfg: DictConfig):
     log.info("Starting the runner")
-    runner = Runner(cfg)
 
-    runner.preprocess_data()
-    runner.load_data()
-    runner.solve_nbs_model()
-    runner.postprocess_data()
-    # runner.visualize_results()  # TODO: port Plotting_Class from Code/
+    runner = Runner(cfg)
+    runner.run()
+
+    log.info("Run completed, good job champ :)")
 
 
 if __name__ == "__main__":

@@ -30,10 +30,22 @@ class Runner:
 
     def run(self):
         self.preprocess_data()
+
+        if not self.config.run_sensitivity:
+            self.single_run()
+        else:
+            self.sensitivity_run()
+
+    def single_run(self):
         self.load_data()
         self.solve_nbs_model()
         self.postprocess_data()
         self.visualize_results()
+        
+    def sensitivity_run(self):
+        # TODO: build grid from self.config.sensitivity, loop over points
+        raise NotImplementedError("sensitivity_run not yet implemented")
+        
 
     def preprocess_data(self):
         """Generate Monte Carlo scenarios and reduce to representatives.

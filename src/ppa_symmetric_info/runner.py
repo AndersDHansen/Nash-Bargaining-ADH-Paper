@@ -24,13 +24,13 @@ class Runner:
             "Runner initialized: contract=%s, sim=%s, sensitivity=%s",
             config.experiment.contract_type,
             config.experiment.sim_name,
-            config.run_sensitivity,
+            config.sensitivity.type,
         )
 
     def run(self):
         self.preprocess_data()
 
-        if not self.config.run_sensitivity:
+        if self.config.sensitivity.type == "none":
             self.single_run()
         else:
             self.sensitivity_run()

@@ -2,9 +2,8 @@
 # This file is the complete specification for one simulation:
 # contract settings, model parameters, and output routing in one place.
 
-# Output routing
+# Simulation label
 sim_name: default_baseload
-run_type: single_run        # single_run | sensitivity
 
 # Contract
 contract_type: baseload

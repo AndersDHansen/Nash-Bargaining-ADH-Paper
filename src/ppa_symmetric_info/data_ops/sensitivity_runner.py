@@ -79,5 +79,26 @@ def run_sensitivity(config) -> None:
 
         results.append({**point, **dp.scalars})
 
-    pd.DataFrame(results).to_csv(out_path / "results_combined.csv", index=False)
+    combined = pd.DataFrame(results)
+    combined.to_csv(out_path / "results_combined.csv", index=False)
+    _save_grids(combined, sens.type, out_path)
     log.info("Sensitivity complete: %d points, results saved to %s", n_points, out_path)
+
+
+# Maps cartesian sensitivity types to their (row, column) parameter names.
+_CARTESIAN_PARAMS: dict[str, tuple[str, str]] = {
+    "risk_aversion":  ("A_G", "A_L"),
+    "asymmetric_info": ("K_G_price", "K_L_price"),
+}
+
+
+def _save_grids(combined: pd.DataFrame, sens_type: str, out_path: Path) -> None:
+    """For 2D cartesian sweeps, write one pivot-table CSV per scalar metric."""
+    if sens_type not in _CARTESIAN_PARAMS:
+        return
+    row_param, col_param = _CARTESIAN_PARAMS[sens_type]
+    scalar_cols = [c for c in combined.columns if c not in (row_param, col_param)]
+    for metric in scalar_cols:
+        pivot = combined.pivot(index=row_param, columns=col_param, values=metric)
+        pivot.to_csv(out_path / f"grid_{metric}.csv")
+    log.info("Grid CSVs written for %d metrics", len(scalar_cols))

@@ -72,14 +72,13 @@ class DataLoader:
 
         # Paths
         self.path_scenarios = Path(cfg.paths.processed.dir) / f"scenarios_reduced_{self.num_scenarios}"
-        if cfg.run_sensitivity:
-            sens_type = cfg.sensitivity.type
+        if cfg.sensitivity.type != "none":
             self.path_results = (
                 Path(cfg.paths.results.sensitivity_dir)
-                / f"{exp.sim_name}_{sens_type}"
+                / f"{exp.sim_name}_{cfg.sensitivity.type}"
             )
         else:
-            self.path_results = Path(cfg.paths.results.dir) / exp.run_type / exp.sim_name
+            self.path_results = Path(cfg.paths.results.dir) / "single_run" / exp.sim_name
         self.path_plots = self.path_results / cfg.paths.results.plots
 
     def _load_scenarios(self):

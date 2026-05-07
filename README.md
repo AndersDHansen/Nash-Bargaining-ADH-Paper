@@ -1,22 +1,13 @@
 # Nash Bargaining for Power Purchase Agreements
 
-Optimization framework for PPA contract negotiation between a renewable energy generator and a corporate load, using Nash bargaining theory, CVaR risk aversion, and Monte Carlo scenario analysis.
+Optimization model for PPA contract negotiation between a renewable energy generator and a corporate load. The model finds the contract terms (strike price and volume) that maximize the asymmetric Nash product of both parties' utilities, where utility combines expected earnings and CVaR risk aversion.
 
-Full documentation is available via MkDocs (see [Documentation](#documentation)).
-
-## Overview
-
-The framework finds optimal strike prices and contract amounts by solving a Nash bargaining problem subject to CVaR-based individual rationality constraints. Two contract structures are supported:
-
-| Contract type | Description |
-| --- | --- |
-| Baseload | Fixed volume `M` (GWh/year) delivered each period |
-| Pay-As-Produced (PAP) | Share `γ` of actual renewable production |
+Full documentation: run `mkdocs serve -f docs/mkdocs.yaml` and open `http://localhost:8000`.
 
 ## Prerequisites
 
 - Python 3.13+
-- Gurobi optimizer with a valid license ([academic licenses](https://www.gurobi.com/academia/academic-program-and-licenses/) are free)
+- Gurobi with a valid license ([academic licenses](https://www.gurobi.com/academia/academic-program-and-licenses/) are free)
 - [uv](https://github.com/astral-sh/uv) (recommended) or conda
 
 ## Installation
@@ -27,7 +18,7 @@ cd Nash-Bargaining-ADH-Paper
 uv sync
 ```
 
-Or with conda:
+With conda:
 
 ```bash
 conda env create -f envs/environment.yaml
@@ -37,70 +28,44 @@ pip install -e .
 
 ## Usage
 
-### Run the full pipeline
-
 ```bash
+# Base case (PAP contract, default config)
 python main.py
-```
 
-This runs scenario generation (if not cached), scenario reduction, and the Nash bargaining optimization.
+# Switch to baseload contract
+python main.py experiment=default_baseload
 
-### Override parameters from the CLI
-
-```bash
-# Switch to Pay-As-Produced contract
-python main.py experiment=pap
-
-# Override a parameter without creating a new experiment file
+# Override parameters from the command line
 python main.py experiment.A_L=0.3 experiment.A_G=0.7
 
-# Use a preset scenario count
-python main.py scenario_gen=2000_scenarios
-
-# Run sensitivity analyses
-python main.py run_sensitivity=true
+# Run a sensitivity analysis
+python main.py run_sensitivity=true sensitivity=risk_aversion
+python main.py run_sensitivity=true sensitivity=bargaining_power
 ```
 
-## Configuration
-
-Config files live in `config/` and are managed by [Hydra](https://hydra.cc). The top-level composition is in `config/config.yaml`.
-
-| Group | File(s) | Controls |
-| --- | --- | --- |
-| `experiment` | `config/experiment/{baseload,pap}.yaml` | Complete run spec: contract type, all model parameters, output routing |
-| `scenario_gen` | `config/scenario_gen/default.yaml` (+ presets) | Monte Carlo settings, time horizon, seed, scenario count |
-| `sensitivity` | `config/sensitivity/default.yaml` | Parameter sweep ranges |
-| `paths` | `config/paths/default.yaml` | Data input and output directories |
-
-## Folder Structure
+## Folder structure
 
 ```text
 Nash-Bargaining-ADH-Paper/
-├── config/                   # Hydra configuration
-│   ├── config.yaml
-│   ├── experiment/           # baseload.yaml, pap.yaml (complete run specifications)
-│   ├── paths/                # default.yaml
-│   ├── scenario_gen/         # default.yaml, 100_scenarios.yaml, 2000_scenarios.yaml, 5000_scenarios.yaml
-│   └── sensitivity/          # default.yaml
-├── data/                     # Raw input data (wind, solar, load)
-├── docs/                     # MkDocs documentation source
-├── envs/                     # Conda environment file
+├── config/
+│   ├── config.yaml                      # Top-level Hydra composition
+│   ├── experiment/                      # default_baseload.yaml, default_pap.yaml
+│   ├── paths/                           # default.yaml
+│   ├── scenario_gen/                    # default.yaml, 100/2000/5000 presets
+│   └── sensitivity/                     # default, risk_aversion, bargaining_power, ...
+├── data/                                # Raw input data (not tracked by git)
+├── docs/                                # MkDocs documentation
+├── results/
+│   ├── single_run/{sim_name}/           # Base case outputs
+│   └── sensitivity/{sim_name}_{type}/  # Sensitivity sweep outputs
 ├── src/
-│   └── ppa_symmetric_info/   # Python package
-│       ├── data_ops/         # DataLoader, DataPreprocessor, scenario generation & reduction
-│       ├── model.py          # Nash bargaining optimization (Gurobi)
-│       ├── runner.py         # Pipeline orchestration
-│       └── utils.py          # Logging helpers
-├── Code/                     # Legacy code (reference only, do not run)
-├── main.py                   # Entry point (Hydra-managed)
+│   └── ppa_symmetric_info/
+│       ├── data_ops/                    # DataLoader, DataPreprocessor, DataPostprocessor
+│       ├── model.py                     # Gurobi model
+│       ├── runner.py                    # Pipeline orchestration
+│       └── utils.py
+├── Code/                                # Legacy code (reference only)
+├── main.py
 ├── pyproject.toml
 └── uv.lock
 ```
-
-## Documentation
-
-```bash
-mkdocs serve -f docs/mkdocs.yaml
-```
-
-Then open <http://localhost:8000>.

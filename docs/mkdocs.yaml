@@ -50,4 +50,5 @@ nav:
     - Installation: installation.md
     - Quick Start: quickstart.md
   - Reference:
+    - Model: model.md
     - Configuration: configuration.md

@@ -6,16 +6,15 @@
 sim_name: default_baseload
 run_type: single_run        # single_run | sensitivity
 
+# Contract
+contract_type: baseload
+barter: true
 
 # Apply time-value discounting to annual cash flows.
 # Annual discount rates. 0.0 = no discounting (all years weighted equally).
 discount: false
 D_G: 0.0
 D_L: 0.0
-
-# Contract
-contract_type: baseload
-barter: true
 
 # Risk aversion weight: 0 = risk-neutral, 1 = fully risk-averse (CVaR only).
 # Utility = (1 - A) * E[pi] + A * CVaR_alpha[pi]
@@ -28,7 +27,6 @@ tau_L: 0.5
 # CVaR confidence level (tail probability). 0.95 = worst 5% of scenarios.
 alpha: 0.95
 
-
 # Asymmetric information biases on price and production beliefs.
 # 0.0 = unbiased. >0 = optimistic, <0 = pessimistic.
 # Price and production are kept separate for independent sensitivity sweeps.
@@ -40,9 +38,7 @@ K_L_prod: 0.0
 # Generator nameplate capacity [MW]. Must match scenario_gen.capacity_mw.
 generator_contract_capacity: 30
 
-# Strike price bounds [EUR/MWh].
-# Lower bound is a hard floor. Upper bound is computed at runtime as:
-#   strikeprice_max = strikeprice_max_factor * E_prob[price * load_capture_rate]
+# Strike price bounds [EUR/GWh]
 strikeprice_min: 0.040
 strikeprice_max: 0.200
 

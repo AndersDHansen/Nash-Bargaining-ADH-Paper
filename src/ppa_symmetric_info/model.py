@@ -178,9 +178,9 @@ class ModelNashBargaining:
         # Contracted term uses generator's production (P^G) and capture rate, valued at load's
         # biased price (price_L). capture_rate_np is needed here — not available via biased products.
         earnings_L_matrix = self.data.discount_factors_L * (
-            -self.data.capture_price_L_biased * self.data.load_np
+            -self.data.capture_price_L_biased * self.data.load
             + self.v.gamma * self.data.production_G
-            * (self.data.capture_rate_np * self.data.price_L - self.v.S)
+            * (self.data.capture_rate * self.data.price_L - self.v.S)
         )
 
         # Utility = expected earnings + risk-aversion-weighted CVaR (Rockafellar-Uryasev).
@@ -207,10 +207,10 @@ class ModelNashBargaining:
 
         # Nash surplus = utility under contract minus disagreement point (precomputed in data_loader)
         self.m.addConstr(
-            self.v.delta_G == self.v.u_G - self.data.zeta_G, name="nash_surplus_G_pap"
+            self.v.delta_G == self.v.u_G - self.data.d_G, name="nash_surplus_G_pap"
         )
         self.m.addConstr(
-            self.v.delta_L == self.v.u_L - self.data.zeta_L, name="nash_surplus_L_pap"
+            self.v.delta_L == self.v.u_L - self.data.d_L, name="nash_surplus_L_pap"
         )
 
         # CVaR constraints — one per scenario (bilinear gamma×S handled by NonConvex=2).
@@ -254,7 +254,7 @@ class ModelNashBargaining:
         # Load's uncontracted cost uses its own consumption (load) at the biased capture price,
         # not the generator's production (production_L is a PAP-specific quantity).
         earnings_L_matrix = self.data.discount_factors_L * (
-            -self.data.capture_price_L_biased * self.data.load_np
+            -self.data.capture_price_L_biased * self.data.load
             + (self.data.price_L - self.v.S) * self.v.M
         )
 
@@ -282,10 +282,10 @@ class ModelNashBargaining:
 
         # Nash surplus = utility under contract minus disagreement point (precomputed in data_loader)
         self.m.addConstr(
-            self.v.delta_G == self.v.u_G - self.data.zeta_G, name="nash_surplus_G_baseload"
+            self.v.delta_G == self.v.u_G - self.data.d_G, name="nash_surplus_G_baseload"
         )
         self.m.addConstr(
-            self.v.delta_L == self.v.u_L - self.data.zeta_L, name="nash_surplus_L_baseload"
+            self.v.delta_L == self.v.u_L - self.data.d_L, name="nash_surplus_L_baseload"
         )
 
         # CVaR constraints — one per scenario (bilinear S×M handled by NonConvex=2).

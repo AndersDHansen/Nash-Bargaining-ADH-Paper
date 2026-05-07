@@ -78,32 +78,35 @@ class DataLoader:
         years, n = self.years, self.num_scenarios
         d = self.path_scenarios
 
-        self.price = self._read_csv(d, "price", years, n)
-        self.production = self._read_csv(d, "production", years, n)
-        self.capture_rate = self._read_csv(d, "capture_rate", years, n)
-        self.load = self._read_csv(d, "load", years, n)
-        self.load_cr = self._read_csv(d, "load_capture_rate", years, n)
+        price_df        = self._read_csv(d, "price", years, n)
+        production_df   = self._read_csv(d, "production", years, n)
+        capture_rate_df = self._read_csv(d, "capture_rate", years, n)
+        load_df         = self._read_csv(d, "load", years, n)
+        load_cr_df      = self._read_csv(d, "load_capture_rate", years, n)
 
         prob_path = d / f"probabilities_scenarios_reduced_{years}y_{n}s.csv"
         self.prob = pd.read_csv(prob_path)["Probability"].to_numpy()
 
-        # Align all column names to price's columns
-        cols = self.price.columns
-        for df in (self.production, self.capture_rate, self.load, self.load_cr):
+        # Align column names then convert to numpy — all scenario arrays are (years, scenarios)
+        cols = price_df.columns
+        for df in (production_df, capture_rate_df, load_df, load_cr_df):
             df.columns = cols
-  
+
+        self.price        = price_df.to_numpy()
+        self.production   = production_df.to_numpy()
+        self.capture_rate = capture_rate_df.to_numpy()
+        self.load         = load_df.to_numpy()
+        self.load_cr      = load_cr_df.to_numpy()
+
         log.info("Strike price bounds: %.4f to %.4f", self.strikeprice_min, self.strikeprice_max)
 
     def _prepare_model_inputs(self):
-        price      = self.price.to_numpy()        # (years, scenarios)
-        production = self.production.to_numpy()
-        capture_rate = self.capture_rate.to_numpy()
-        load       = self.load.to_numpy()
-        load_cr    = self.load_cr.to_numpy()
-
-        self.load_np = load          # numpy alias — use this in model constraints
-        self.capture_rate_np = capture_rate  # needed for PAP contracted term in load utility
-        prob       = self.prob                    # (scenarios,)
+        price        = self.price         # (years, scenarios) numpy — set in _load_scenarios
+        production   = self.production
+        capture_rate = self.capture_rate
+        load         = self.load
+        load_cr      = self.load_cr
+        prob         = self.prob          # (scenarios,)
 
         # Discount factors — shape (years, 1) so they broadcast over scenarios
         if self.discount:
@@ -186,11 +189,12 @@ class DataLoader:
         cvar_nc_G = self._cvar_left(self.earnings_nc_G, prob)
         cvar_nc_L = self._cvar_left(self.earnings_nc_L, prob)
 
-        # Disagreement points: U_i = (1 - A_i)*E[earnings] + A_i*CVaR[earnings]
-        self.zeta_G = (1 - self.A_G) * self.E_earnings_nc_G + self.A_G * cvar_nc_G
-        self.zeta_L = (1 - self.A_L) * self.E_earnings_nc_L + self.A_L * cvar_nc_L
+        # Disagreement points (threat points): d_i = (1 - A_i)*E[earnings] + A_i*CVaR[earnings]
+        # Named d_G/d_L to distinguish from zeta_G/zeta_L Gurobi variables (CVaR VaR thresholds).
+        self.d_G = (1 - self.A_G) * self.E_earnings_nc_G + self.A_G * cvar_nc_G
+        self.d_L = (1 - self.A_L) * self.E_earnings_nc_L + self.A_L * cvar_nc_L
 
-        log.info("Disagreement points: zeta_G=%.4f, zeta_L=%.4f", self.zeta_G, self.zeta_L)
+        log.info("Disagreement points: d_G=%.4f, d_L=%.4f", self.d_G, self.d_L)
 
     def _cvar_left(self, x: np.ndarray, prob: np.ndarray) -> float:
         """Expected value of x in the worst (1-alpha) probability mass."""

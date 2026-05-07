@@ -1,3 +1,21 @@
+# General
+stuff/*
+logs/*
+paper/*
+
+# Results: track top-level subfolders but not their contents
+results/single_run/*
+!results/single_run/.gitkeep
+results/sensitivity/*
+!results/sensitivity/.gitkeep
+
+# Hydra
+outputs/*
+multirun/*
+
+# Data
+data/processed/*
+
 # Python
 __pycache__/
 *.py[cod]
@@ -24,3 +42,4 @@ venv/
 # Generated outputs
 Code/Plots/*.png
 Code/Results/
+

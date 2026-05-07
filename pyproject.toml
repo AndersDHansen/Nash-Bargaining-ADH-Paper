@@ -1,0 +1,46 @@
+[project]
+name = "ppa-symmetric-info"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "gurobipy>=13.0.1",
+    "hydra-core>=1.3.2",
+    "matplotlib>=3.10.9",
+    "numpy>=2.4.4",
+    "pandas>=3.0.2",
+    "scipy>=1.17.1",
+    "scikit-learn>=1.8.0",
+    "seaborn>=0.13.2",
+    "tqdm>=4.67.3",
+    "pytest>=9.0.2",
+    "statsmodels>=0.14.6",
+    "ruff>=0.15.12",
+]
+
+[dependency-groups]
+dev = [
+    "coverage==7.6.9",
+    "invoke==2.2.0",
+    "pre-commit==4.5.1",
+    "mkdocs>=1.6.1,<2.0",
+    "mkdocs-material>=9.5",
+    "mkdocstrings[python]>=0.29",
+    "fastapi>=0.135.3",
+    "uvicorn[standard]>=0.44.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ppa_symmetric_info"]
+
+[tool.uv]
+package = true
+
+[tool.mypy]
+ignore_missing_imports = true
+

@@ -1,0 +1,6 @@
+defaults:
+  - paths: default          # File system paths for raw data, processed outputs, results
+  - scenario_gen: default   # Monte Carlo generation and reduction settings
+  - experiment: default_pap # Full run spec: contract + model params
+  - sensitivity: risk_aversion    # Use default (none) for a single run, or name a sweep config
+  - _self_

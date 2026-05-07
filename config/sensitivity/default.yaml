@@ -1,0 +1,3 @@
+# Default sensitivity config — no sweep active.
+# Override with: sensitivity=risk_aversion, sensitivity=bargaining_power, etc.
+type: none

@@ -1,85 +1,76 @@
 # Nash Bargaining for Power Purchase Agreements
 
-Nash Bargaining optimisation framework for negotiating Power Purchase Agreements (CPPAs) between a renewable-energy generator and a load, using Nash bargaining theory, CVaR, and Monte Carlo scenario analysis.
+Optimization model for PPA contract negotiation between a renewable energy generator and a corporate load. The model finds the contract terms (strike price and volume) that maximize the asymmetric Nash product of both parties' utilities, where utility combines expected earnings and CVaR risk aversion.
 
-## Purpose
-
-This repository accompanies a master's thesis that models the contract negotiation between two parties:
-
-- **Generator** — a renewable energy producer (wind/solar) selling electricity
-- **Load** — a corporate consumer purchasing electricity under a PPA
-
-The framework determines optimal **strike prices** and **contract amounts** by solving a Nash bargaining problem subject to individual rationality constraints. It supports two contract structures:
-
-| Contract Type | Description |
-|---|---|
-| **Baseload** | Fixed volume delivered every period |
-| **Pay-As-Produced (PAP)** | Volume follows actual renewable production |
+Full documentation: run `mkdocs serve -f docs/mkdocs.yaml` and open `http://localhost:8000`.
 
 ## Prerequisites
 
-- **Python** 3.10+
-- **Gurobi** optimiser with a valid license (academic licenses are free)
-- The Python packages listed below
-
-### Key Dependencies
-
-| Package | Use |
-|---|---|
-| `gurobipy` | Mixed-integer / nonlinear optimisation (Nash bargaining) |
-| `numpy`, `pandas` | Data handling |
-| `scipy` | Statistical distributions, optimisation fallback |
-| `matplotlib`, `seaborn` | Plotting |
-| `scikit-learn`, `scikit-learn-extra` | K-Medoids scenario reduction |
-| `statsmodels` | Time-series modelling for scenario generation |
-| `tqdm` | Progress bars |
+- Python 3.13+
+- Gurobi with a valid license ([academic licenses](https://www.gurobi.com/academia/academic-program-and-licenses/) are free)
+- [uv](https://github.com/astral-sh/uv) (recommended) or conda
 
 ## Installation
 
 ```bash
-# Clone the repository
-git clone https://github.com/<your-username>/Thesis-Repository.git
-cd Thesis-Repository
-
-# Create and activate a virtual environment (recommended)
-python -m venv .venv
-source .venv/bin/activate   # Linux / macOS
-.venv\Scripts\activate      # Windows
-
-# Install dependencies
-pip install numpy pandas scipy matplotlib seaborn scikit-learn scikit-learn-extra statsmodels gurobipy tqdm jupyter
+git clone https://github.com/<your-username>/Nash-Bargaining-ADH-Paper.git
+cd Nash-Bargaining-ADH-Paper
+uv sync
 ```
 
-> **Note:** Gurobi requires a separate license. See [gurobi.com/academia](https://www.gurobi.com/academia/academic-program-and-licenses/) for free academic licenses.
-
-## Quickstart
-
-All executable code lives in the `Code/` directory.
-
-### 1. Generate scenarios
+With conda:
 
 ```bash
-cd Code
-python generate_scenarios.py
+conda env create -f envs/environment.yaml
+conda activate nash-bargaining
+pip install -e .
 ```
 
-This creates Monte Carlo price, production, load, and capture-rate scenario files in `Code/scenarios/`.
-
-### 2. Run the main analysis
+## Usage
 
 ```bash
-python main_forecast.py
+# Base case (PAP contract, default config)
+python main.py
+
+# Switch to baseload contract
+python main.py experiment=default_baseload
+
+# Override parameters from the command line
+python main.py experiment.A_L=0.3 experiment.A_G=0.7
+
+# Run a sensitivity analysis
+python main.py run_sensitivity=true sensitivity=risk_aversion
+python main.py run_sensitivity=true sensitivity=bargaining_power
 ```
 
-Runs contract negotiation, sensitivity analyses, and saves results to `Code/Results/` and plots to `Code/Plots/`.
+## Folder structure
 
-### 3. Interactive exploration (Jupyter)
-
-Open any of the notebooks for interactive analysis:
-
-```bash
-jupyter notebook Min_Max_strikeprices.ipynb
+```text
+Nash-Bargaining-ADH-Paper/
+├── config/
+│   ├── config.yaml                      # Top-level Hydra composition
+│   ├── experiment/                      # default_baseload.yaml, default_pap.yaml
+│   ├── paths/                           # default.yaml
+│   ├── scenario_gen/                    # default.yaml, 100/2000/5000 presets
+│   └── sensitivity/                     # default, risk_aversion, bargaining_power, ...
+├── data/                                # Raw input data (not tracked by git)
+├── docs/                                # MkDocs documentation
+├── results/
+│   ├── single_run/{sim_name}/           # Base case outputs
+│   └── sensitivity/{sim_name}_{type}/  # Sensitivity sweep outputs
+├── src/
+│   └── ppa_symmetric_info/
+│       ├── data_ops/                    # DataLoader, DataPreprocessor, DataPostprocessor
+│       ├── model.py                     # Gurobi model
+│       ├── runner.py                    # Pipeline orchestration
+│       └── utils.py
+├── Code/                                # Legacy code (reference only)
+├── main.py
+├── pyproject.toml
+└── uv.lock
 ```
+<<<<<<< HEAD
+=======
 
 See `Analysis_Execution_Guide.md` in `Code/` for a step-by-step guide to the notebook analyses.
 
@@ -164,3 +155,4 @@ Thesis-Repository/
 ```
 
 
+>>>>>>> master

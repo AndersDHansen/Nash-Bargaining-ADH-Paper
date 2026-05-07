@@ -1,0 +1,31 @@
+# @package paths
+root: "${hydra:runtime.cwd}"
+logs: "${paths.root}/logs"
+
+# Raw input data — never modified by the pipeline.
+raw:
+  dir:         "${paths.root}/data/raw"
+  wind:        "${paths.raw.dir}/Wind/combined_wind_data.csv"
+  solar:       "${paths.raw.dir}/Solar/combined_solar_data.csv"
+  price:       "${paths.raw.dir}/EnergyReport.csv"
+  consumption: "${paths.raw.dir}/ConsumptionIndustry.csv"
+
+# Processed outputs written by DataPreprocessor.
+# Subdirectories are created at runtime based on scenario_gen settings:
+#   {processed.dir}/mc_{num_scenarios_mc}/                    <- raw MC files, OU prices (monte_price=false)
+#   {processed.dir}/mc_normal_prices_{num_scenarios_mc}/      <- raw MC files, Normal prices (monte_price=true)
+#   {processed.dir}/scenarios_reduced_{num_scenarios_reduced}/ <- K-means reduced files
+processed:
+  dir: "${paths.root}/data/processed"
+
+# Hydra-managed run directory (timestamped). Config dumps land here automatically.
+output:
+  run_dir: "${hydra:runtime.output_dir}"
+
+# Static results folder. Experiment subfolder is appended in Python using experiment_name.
+# Full path (single run):   {results.dir}/single_run/{sim_name}/
+# Full path (sensitivity):  {results.dir}/sensitivity/{sim_name}_{sensitivity_type}/
+results:
+  dir:            "${paths.root}/results"
+  sensitivity_dir: "${paths.root}/results/sensitivity"
+  plots:          "figures"

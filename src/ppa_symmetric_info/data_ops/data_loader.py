@@ -4,7 +4,7 @@ from pathlib import Path
 
 from omegaconf import DictConfig
 
-from ..utils import get_logger
+from ..utils import get_logger, cvar_left
 
 log = get_logger(__name__)
 
@@ -32,6 +32,7 @@ class DataLoader:
         return df
 
     def _load_config(self, cfg: DictConfig):
+        """Unpack all Hydra config fields into typed instance attributes."""
         self.config = cfg  # stored so downstream classes can save it without re-passing
         scen_gen = cfg.scenario_gen
         exp = cfg.experiment
@@ -75,6 +76,7 @@ class DataLoader:
         self.path_plots = self.path_results / cfg.paths.results.plots
 
     def _load_scenarios(self):
+        """Read scenario CSVs into numpy arrays (years × scenarios) and load scenario probabilities."""
         years, n = self.years, self.num_scenarios
         d = self.path_scenarios
 
@@ -101,6 +103,7 @@ class DataLoader:
         log.info("Strike price bounds: %.4f to %.4f", self.strikeprice_min, self.strikeprice_max)
 
     def _prepare_model_inputs(self):
+        """Derive all model inputs — biased distributions, capture prices, precomputed contract terms, and disagreement points."""
         price        = self.price         # (years, scenarios) numpy — set in _load_scenarios
         production   = self.production
         capture_rate = self.capture_rate
@@ -186,8 +189,8 @@ class DataLoader:
         self.E_lambda_disc_L  = float((prob * self.lambda_disc_L).sum())
 
         # --- CVaR of no-contract earnings (left tail, worst outcomes) ---
-        cvar_nc_G = self._cvar_left(self.earnings_nc_G, prob)
-        cvar_nc_L = self._cvar_left(self.earnings_nc_L, prob)
+        cvar_nc_G = cvar_left(self.earnings_nc_G, prob, self.alpha)
+        cvar_nc_L = cvar_left(self.earnings_nc_L, prob, self.alpha)
 
         # Disagreement points (threat points): d_i = (1 - A_i)*E[earnings] + A_i*CVaR[earnings]
         # Named d_G/d_L to distinguish from zeta_G/zeta_L Gurobi variables (CVaR VaR thresholds).
@@ -195,17 +198,6 @@ class DataLoader:
         self.d_L = (1 - self.A_L) * self.E_earnings_nc_L + self.A_L * cvar_nc_L
 
         log.info("Disagreement points: d_G=%.4f, d_L=%.4f", self.d_G, self.d_L)
-
-    def _cvar_left(self, x: np.ndarray, prob: np.ndarray) -> float:
-        """Expected value of x in the worst (1-alpha) probability mass."""
-        order  = np.argsort(x)
-        x_s    = x[order]
-        p_s    = prob[order]
-        tail   = 1.0 - self.alpha
-        # probability mass already accumulated before each scenario
-        prev_cum = np.concatenate([[0.0], np.cumsum(p_s)[:-1]])
-        weights  = np.minimum(p_s, np.maximum(0.0, tail - prev_cum))
-        return float((weights * x_s).sum() / tail)
 
     # @AndersDHansen do we need this function to exist?
     def _compute_strike_boundaries(self):

@@ -1,5 +1,4 @@
 import logging
-import pandas as pd
 from pathlib import Path
 from types import SimpleNamespace
 import gurobipy as gb
@@ -26,6 +25,7 @@ class ModelNashBargaining:
         self.solve()
 
     def _setup_gurobi_model(self):
+        """Initialise the Gurobi model with solver parameters and the variable namespace."""
         self.m = gb.Model()
         self.m.Params.NonConvex = 2  # Allow bilinear terms (S×M, gamma×S)
         self.m.Params.FeasibilityTol = 1e-6  # Constraint violation tolerance
@@ -35,6 +35,7 @@ class ModelNashBargaining:
         self.v = SimpleNamespace()  # Namespace for all Gurobi decision variables
 
     def _directories(self):
+        """Create output directories and attach a file handler to the root logger."""
         # Path hierarchy — explicit attributes for every level
         self.path_results_root = Path(self.data.path_results).parent.parent  # results/
         self.path_run_type = Path(self.data.path_results).parent  # results/single_run/
@@ -44,7 +45,6 @@ class ModelNashBargaining:
         # File paths
         self.path_model_lp = self.path_sim / "model.lp"
         self.path_model_mps = self.path_sim / "model.mps"
-        self.path_results_csv = self.path_sim / "results.csv"
         self.path_config = self.path_sim / "config.yaml"
         self.path_log = self.path_sim / "run.log"
 
@@ -144,8 +144,8 @@ class ModelNashBargaining:
         )
         logger.info("Variables specific to Baseload added")
 
-    # Build constraints
     def build_constraints(self):
+        """Dispatch to common and contract-type-specific constraint builders."""
         self._build_common_cons()
 
         if self.data.contract_type == "pap":
@@ -154,7 +154,7 @@ class ModelNashBargaining:
             self._build_baseload_cons()
 
     def _build_common_cons(self):
-
+        """Add log-linearisation constraints shared by both contract types."""
         # Natural log constraints
         self.m.addGenConstrLog(
             self.v.delta_G, self.v.log_delta_G, name="cons_log_delta_G"
@@ -320,9 +320,8 @@ class ModelNashBargaining:
 
         logger.info("Constraints specific to Baseload added")
 
-    # Build the objective funtion
     def build_obj_func(self):
-
+        """Set the asymmetric Nash product objective: maximise tau_G*log(delta_G) + tau_L*log(delta_L)."""
         self.m.setObjective(
             (
                 self.data.tau_G * self.v.log_delta_G
@@ -332,8 +331,8 @@ class ModelNashBargaining:
         )
         logger.info("Objective function created")
 
-    # Solve the actual model
     def solve(self):
+        """Run Gurobi optimisation; handle infeasibility and sub-optimal termination."""
         logger.info("Solving the model...")
         self.m.optimize()
 
@@ -346,11 +345,11 @@ class ModelNashBargaining:
             logger.warning("Model did not reach optimality. Status: %d", self.m.Status)
             return
 
-        logger.info("Model solved. Extracting results...")
-        self._extract_results()
+        logger.info("Model solved.")
         self._save_model_files()
 
     def _compute_iis(self):
+        """Compute and log the Irreducible Infeasible Subsystem for debugging."""
         self.m.computeIIS()
         path_iis = self.path_sim / "model.ilp"
         self.m.write(str(path_iis))
@@ -369,18 +368,8 @@ class ModelNashBargaining:
             if gc.IISGenConstr:
                 logger.error("  GENCON  %s", gc.GenConstrName)
 
-    # Extract the results
-    def _extract_results(self):
-        # vars(SimpleNamespace) returns the underlying __dict__ of name→gurobi_obj pairs.
-        # Only collect scalar gb.Var entries; indexed tuplediicts (eta_*) are CVaR auxiliaries
-        # and are skipped here — add a separate export if per-scenario values are needed.
-        scalars = {
-            name: var.X for name, var in vars(self.v).items() if isinstance(var, gb.Var)
-        }
-        pd.Series(scalars, name="value").to_csv(self.path_results_csv, header=True)
-        logger.info("Results extracted to %s", self.path_results_csv)
-
     def _save_model_files(self):
+        """Write the solved model to .lp and .mps for reproducibility and auditing."""
         self.m.write(str(self.path_model_lp))
         self.m.write(str(self.path_model_mps))
         logger.info("Model files saved to %s", self.path_sim)

@@ -15,7 +15,7 @@ def main(cfg: DictConfig):
     runner.preprocess_data()
     runner.load_data()
     runner.solve_nbs_model()
-    # runner.export_results()     # TODO: port save_results_to_csv from Code/
+    runner.postprocess_data()
     # runner.visualize_results()  # TODO: port Plotting_Class from Code/
 
 

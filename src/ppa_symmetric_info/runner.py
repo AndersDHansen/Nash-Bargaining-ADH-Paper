@@ -1,5 +1,5 @@
 from .utils import get_logger
-from .data_ops import DataLoader, DataPreprocessor
+from .data_ops import DataLoader, DataPreprocessor, DataPostprocessor
 from .model import ModelNashBargaining
 
 log = get_logger(__name__)
@@ -32,7 +32,7 @@ class Runner:
         self.preprocess_data()
         self.load_data()
         self.solve_nbs_model()
-        self.export_results()
+        self.postprocess_data()
         self.visualize_results()
 
     def preprocess_data(self):
@@ -55,9 +55,9 @@ class Runner:
         self.nbs_model = ModelNashBargaining(self.data)
         self.nbs_model.run()
 
-    def export_results(self):
-        # TODO: port save_results_to_csv from Code/main_forecast.py
-        pass
+    def postprocess_data(self):
+        """Extract and save results from the solved model."""
+        DataPostprocessor(self.nbs_model).run()
 
     def visualize_results(self):
         # TODO: port Plotting_Class from Code/plotting/

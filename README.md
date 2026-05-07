@@ -69,3 +69,90 @@ Nash-Bargaining-ADH-Paper/
 ├── pyproject.toml
 └── uv.lock
 ```
+<<<<<<< HEAD
+=======
+
+See `Analysis_Execution_Guide.md` in `Code/` for a step-by-step guide to the notebook analyses.
+
+## Data Flow
+
+```
+Raw Data (Code/Data/)
+    │
+    ▼
+generate_scenarios.py  →  Code/scenarios/*.csv
+                                │
+                                ▼
+                    scenario_reduction.py  →  Code/scenarios/*_reduced_*.csv
+                                                    │
+                                                    ▼
+                                        main_forecast.py  →  Code/Results/*.csv
+                                                           →  Code/Plots/*.png
+                                                    │
+                                                    ▼
+                                        Jupyter notebooks (interactive exploration)
+```
+
+## Two Workflows
+
+### Scenario Generation
+
+Run **once** (or whenever input data changes), then reuse the generated scenarios:
+
+1. `generate_scenarios.py` — reads raw data from `Code/Data/`, produces full Monte Carlo scenario sets in `Code/scenarios/`
+2. `scenario_reduction.py` — applies K-Medoids clustering to reduce scenarios, writing `*_reduced_*.csv` files back to `Code/scenarios/`
+
+### Optimization & Analysis
+
+Run as many times as needed for different contract configurations or sensitivity sweeps:
+
+- `main_forecast.py` — reads the reduced scenarios, solves the Nash bargaining problem, runs sensitivity analyses, and writes results to `Code/Results/` and figures to `Code/Plots/`
+
+## Configuration
+
+| File | Purpose |
+|---|---|
+| `Code/config_scenarios.py` | Parameters for scenario generation (number of simulations, horizons, data paths) |
+| `Code/config_optimization.py` | Parameters for optimization and sensitivity analysis (risk levels, negotiation power, contract types) |
+
+## Folder Structure
+
+```
+Thesis-Repository/
+├── Code/
+│   ├── Data/                  # Raw input data
+│   │   ├── Solar/             # Solar production profiles (2020-2024)
+│   │   ├── Wind/              # Wind production profiles (2020-2024)
+│   │   ├── EnergyReport.csv   # Historical energy market data
+│   │   └── ConsumptionIndustry.csv
+│   ├── Plots/                 # Generated figures
+│   ├── Results/               # CSV/JSON output from analyses
+│   ├── scenarios/             # Generated Monte Carlo scenario files
+│   │
+│   ├── main_forecast.py       # Main entry point — runs negotiation + sensitivity
+│   ├── contract_negotiation.py # Nash bargaining solver (Gurobi + SciPy)
+│   ├── Barter_Set.py          # Barter set computation and visualisation
+│   ├── sensitivity_analysis.py # Parameter sweeps (risk, bias, negotiation power)
+│   ├── visualization.py       # Plotting utilities
+│   ├── dataloader.py          # Scenario loading and InputData class
+│   ├── utils.py               # Shared helpers (CVaR, forecasts, strike-price bounds)
+│   ├── generate_scenarios.py  # Monte Carlo scenario generation
+│   ├── run_negotiation_vs_risk.py # Negotiation-vs-risk comparison script
+│   ├── Plot_visualizations.py # Re-plot from saved results
+│   │
+│   ├── Min_Max_strikeprices.ipynb      # Main interactive analysis notebook
+│   ├── SR_SU_testing.ipynb             # Strike-price bound testing
+│   ├── Quickplots.ipynb                # Quick exploratory plots
+│   ├── Time_sensitivity.ipynb          # Time-horizon sensitivity
+│   ├── Barter_Set_Visualizer.ipynb     # Barter set exploration
+│   ├── scenario_reduction.ipynb        # Scenario reduction demo
+│   ├── test_cvar.ipynb                 # CVaR validation
+│   └── Analysis_Execution_Guide.md     # Step-by-step notebook guide
+│
+├── Project_Extensions_direction.drawio  # Project roadmap diagram
+├── .gitignore
+└── README.md
+```
+
+
+>>>>>>> master

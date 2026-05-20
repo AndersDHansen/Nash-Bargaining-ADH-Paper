@@ -5,9 +5,9 @@ type: risk_aversion
 A_G:
   start: 0.0
   end: 1.0
-  n: 101
+  n: 11
 
 A_L:
   start: 0.0
   end: 1.0
-  n: 101
+  n: 11

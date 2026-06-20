@@ -1,0 +1,126 @@
+<h2>Bargaining Power Plot — Layout Options</h2>
+<p class="subtitle">x-axis = τ<sub>L</sub> (0 = generator has all power, 1 = load has all power). Which primary story does this figure tell?</p>
+
+<div class="cards">
+
+  <!-- Option A -->
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="font-family:monospace;font-size:11px;padding:10px;background:#f8f9fa;border-radius:4px;line-height:1.7">
+        <div style="text-align:center;font-weight:bold;font-size:12px;margin-bottom:6px">Contract Terms</div>
+        <div style="border:1px solid #ccc;border-radius:3px;padding:6px 8px;margin-bottom:6px">
+          <div style="font-size:10px;color:#888">(a) Strike price S [EUR/MWh]</div>
+          <svg width="100%" height="50" viewBox="0 0 200 50">
+            <polyline points="0,45 40,38 80,28 120,18 160,10 200,5" fill="none" stroke="#1E88E5" stroke-width="2"/>
+            <line x1="0" y1="25" x2="200" y2="25" stroke="#aaa" stroke-dasharray="3" stroke-width="1"/>
+            <text x="2" y="48" font-size="8" fill="#888">0</text>
+            <text x="185" y="48" font-size="8" fill="#888">1</text>
+            <text x="82" y="48" font-size="8" fill="#888">τ_L</text>
+          </svg>
+        </div>
+        <div style="border:1px solid #ccc;border-radius:3px;padding:6px 8px">
+          <div style="font-size:10px;color:#888">(b) Contract volume M [MW]</div>
+          <svg width="100%" height="50" viewBox="0 0 200 50">
+            <polyline points="0,5 40,10 80,18 120,28 160,38 200,45" fill="none" stroke="#FB8C00" stroke-width="2"/>
+            <text x="2" y="48" font-size="8" fill="#888">0</text>
+            <text x="185" y="48" font-size="8" fill="#888">1</text>
+            <text x="82" y="48" font-size="8" fill="#888">τ_L</text>
+          </svg>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A — Contract terms (2 panels)</h3>
+      <p>Shows how S and M shift as bargaining power moves from generator to load. Clean, focused on the contract outcome itself.</p>
+      <div class="pros-cons" style="font-size:11px">
+        <div class="pros"><h4>Pros</h4><ul><li>Simple story</li><li>Pairs naturally with risk-aversion heatmaps</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Doesn't show welfare distribution</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Option B -->
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="font-family:monospace;font-size:11px;padding:10px;background:#f8f9fa;border-radius:4px;line-height:1.7">
+        <div style="text-align:center;font-weight:bold;font-size:12px;margin-bottom:6px">Earnings Distribution</div>
+        <div style="border:1px solid #ccc;border-radius:3px;padding:6px 8px;margin-bottom:6px">
+          <div style="font-size:10px;color:#888">Generator | A_G = 0.5</div>
+          <svg width="100%" height="50" viewBox="0 0 200 50">
+            <polygon points="0,8 200,40 200,45 0,14" fill="#2196F3" opacity="0.15"/>
+            <polyline points="0,10 200,42" fill="none" stroke="#2196F3" stroke-width="2"/>
+            <polyline points="0,15 200,47" fill="none" stroke="#0D47A1" stroke-width="1.5" stroke-dasharray="4"/>
+            <text x="2" y="48" font-size="8" fill="#888">0</text>
+            <text x="185" y="48" font-size="8" fill="#888">1</text>
+            <text x="82" y="48" font-size="8" fill="#888">τ_L</text>
+          </svg>
+        </div>
+        <div style="border:1px solid #ccc;border-radius:3px;padding:6px 8px">
+          <div style="font-size:10px;color:#888">Load | A_G = 0.5</div>
+          <svg width="100%" height="50" viewBox="0 0 200 50">
+            <polygon points="0,40 200,8 200,14 0,45" fill="#FF5722" opacity="0.15"/>
+            <polyline points="0,42 200,10" fill="none" stroke="#FF5722" stroke-width="2"/>
+            <polyline points="0,47 200,15" fill="none" stroke="#BF360C" stroke-width="1.5" stroke-dasharray="4"/>
+            <text x="2" y="48" font-size="8" fill="#888">0</text>
+            <text x="185" y="48" font-size="8" fill="#888">1</text>
+            <text x="82" y="48" font-size="8" fill="#888">τ_L</text>
+          </svg>
+        </div>
+        <div style="font-size:9px;color:#666;margin-top:4px">— mean (contract) &nbsp; — — mean (no contract) &nbsp; shaded = CVaR gap</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B — Earnings split (2 panels, mirrors existing style)</h3>
+      <p>Mean earnings + CVaR for Generator (top) and Load (bottom) as τ<sub>L</sub> varies. Matches the existing risk-profile notebook cells exactly.</p>
+      <div class="pros-cons" style="font-size:11px">
+        <div class="pros"><h4>Pros</h4><ul><li>Consistent with existing figures</li><li>Shows risk exposure shift</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Two separate panels to compare</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Option C -->
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="font-family:monospace;font-size:11px;padding:10px;background:#f8f9fa;border-radius:4px;line-height:1.7">
+        <div style="text-align:center;font-weight:bold;font-size:12px;margin-bottom:6px">4-Panel: Contract + Surplus</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px">
+          <div style="border:1px solid #ccc;border-radius:3px;padding:4px">
+            <div style="font-size:9px;color:#888">(a) S [EUR/MWh]</div>
+            <svg width="100%" height="35" viewBox="0 0 90 35"><polyline points="0,30 90,5" fill="none" stroke="#1E88E5" stroke-width="2"/></svg>
+          </div>
+          <div style="border:1px solid #ccc;border-radius:3px;padding:4px">
+            <div style="font-size:9px;color:#888">(b) M [MW]</div>
+            <svg width="100%" height="35" viewBox="0 0 90 35"><polyline points="0,5 90,30" fill="none" stroke="#FB8C00" stroke-width="2"/></svg>
+          </div>
+          <div style="border:1px solid #ccc;border-radius:3px;padding:4px">
+            <div style="font-size:9px;color:#888">(c) δ_G surplus</div>
+            <svg width="100%" height="35" viewBox="0 0 90 35">
+              <polyline points="0,30 90,5" fill="none" stroke="#2196F3" stroke-width="2"/>
+              <polyline points="0,30 90,5" fill="none" stroke="#0D47A1" stroke-width="1.2" stroke-dasharray="3" transform="translate(0,5)"/>
+            </svg>
+          </div>
+          <div style="border:1px solid #ccc;border-radius:3px;padding:4px">
+            <div style="font-size:9px;color:#888">(d) δ_L surplus</div>
+            <svg width="100%" height="35" viewBox="0 0 90 35">
+              <polyline points="0,5 90,30" fill="none" stroke="#FF5722" stroke-width="2"/>
+              <polyline points="0,5 90,30" fill="none" stroke="#BF360C" stroke-width="1.2" stroke-dasharray="3" transform="translate(0,5)"/>
+            </svg>
+          </div>
+        </div>
+        <div style="font-size:9px;color:#666;margin-top:4px;text-align:center">rows = contract terms / surplus split &nbsp;·&nbsp; 3 lines per panel @ A_L ∈ {0.25, 0.50, 0.75}</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C — 4-panel combined (requires re-running sensitivity)</h3>
+      <p>Contract terms (S, M) plus surplus above disagreement (δ<sub>G</sub>, δ<sub>L</sub>) in one figure. Three colored lines at A<sub>L</sub> = 0.25 / 0.50 / 0.75. Most complete single figure.</p>
+      <div class="pros-cons" style="font-size:11px">
+        <div class="pros"><h4>Pros</h4><ul><li>Full picture in one figure</li><li>Shows A_L sensitivity on τ_L axis</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Needs sensitivity re-run</li><li>Busier layout</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<p style="font-size:11px;color:#888;margin-top:16px">Note: Options A &amp; B can be produced from the existing single-A_L data. Option C requires re-running the sensitivity sweep (now configured in YAML). All options use τ<sub>L</sub> on the x-axis.</p>

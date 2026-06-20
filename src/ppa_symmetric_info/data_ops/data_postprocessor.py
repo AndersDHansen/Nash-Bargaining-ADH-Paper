@@ -36,6 +36,8 @@ class DataPostprocessor:
         self.scalars = {
             "objective_value":  self.model.m.ObjVal,
             "S_EUR_MWh":        S * 1e3,
+            "SR_star":          d.SR_star,
+            "SU_star":          d.SU_star,
             "disagreement_G":   d.d_G,
             "disagreement_L":   d.d_L,
             "delta_G":          delta_G,
@@ -55,6 +57,8 @@ class DataPostprocessor:
             "earnings_L":    earnings_L,
             "earnings_G_cp": earnings_G_cp,
             "earnings_L_cp": earnings_L_cp,
+            "earnings_nc_G": d.earnings_nc_G,
+            "earnings_nc_L": d.earnings_nc_L,
         })
 
         logger.info(

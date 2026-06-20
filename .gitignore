@@ -41,5 +41,6 @@ venv/
 
 # Generated outputs
 Code/Plots/*.png
+.png
 Code/Results/
 

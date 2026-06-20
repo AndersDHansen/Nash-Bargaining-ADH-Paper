@@ -1,0 +1,207 @@
+<h2>How should S and M appear in the paper?</h2>
+<p class="subtitle">Mockups at ~two-column figure width (170mm). Heatmap left, A_G=0.5 slice right.</p>
+
+<style>
+  .paper-fig {
+    background: white;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    padding: 14px 16px 10px;
+    font-family: "Times New Roman", serif;
+    color: #111;
+    max-width: 580px;
+  }
+  .fig-caption {
+    font-size: 10px;
+    color: #333;
+    margin-top: 8px;
+    line-height: 1.4;
+  }
+  .fig-caption strong { font-weight: bold; }
+  .subfig-label {
+    font-size: 10px;
+    font-weight: bold;
+    color: #111;
+    margin-bottom: 2px;
+  }
+  .row-2col { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 10px; }
+  .hmap-wrap { flex: 0 0 auto; }
+  .slice-wrap { flex: 1; min-width: 0; }
+  .hmap-row { display: flex; gap: 1px; margin-bottom: 1px; }
+  .divider { border: none; border-top: 1px solid #ddd; margin: 10px 0; }
+  .axis-tick { font-size: 7px; fill: #555; font-family: "Times New Roman", serif; }
+  .axis-label-txt { font-size: 8px; fill: #333; font-family: "Times New Roman", serif; }
+  .panel-title-txt { font-size: 9px; font-weight: bold; fill: #111; font-family: "Times New Roman", serif; }
+</style>
+
+<div class="cards">
+
+  <!-- Option A: Two separate figures -->
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding:12px">
+      <div style="font-size:10px;color:#888;margin-bottom:6px;font-family:sans-serif">Two paper figures (Figure N and Figure N+1)</div>
+
+      <div class="paper-fig" style="margin-bottom:12px">
+        <div class="row-2col">
+          <div class="hmap-wrap">
+            <div class="subfig-label">(a)</div>
+            <div id="hm-s-fig1"></div>
+            <div style="font-size:8px;color:#555;text-align:center;margin-top:2px">A_L</div>
+          </div>
+          <div class="slice-wrap">
+            <div class="subfig-label">(b)</div>
+            <svg width="160" height="110">
+              <line x1="28" y1="10" x2="28" y2="90" stroke="#888" stroke-width="0.8"/>
+              <line x1="28" y1="90" x2="155" y2="90" stroke="#888" stroke-width="0.8"/>
+              <polyline points="28,80 48,73 68,65 88,57 108,51 128,47 148,44 155,43"
+                        fill="none" stroke="#1565C0" stroke-width="1.8"/>
+              <text x="13" y="50" class="axis-label-txt" text-anchor="middle" transform="rotate(-90,13,50)">S [EUR/MWh]</text>
+              <text x="92" y="103" class="axis-label-txt" text-anchor="middle">Load risk aversion A_L</text>
+              <text x="30" y="8" class="panel-title-txt">A_G = 0.5</text>
+              <!-- y ticks -->
+              <text x="24" y="83" class="axis-tick" text-anchor="end">117</text>
+              <text x="24" y="45" class="axis-tick" text-anchor="end">128</text>
+              <!-- x ticks -->
+              <text x="28" y="97" class="axis-tick" text-anchor="middle">0</text>
+              <text x="155" y="97" class="axis-tick" text-anchor="middle">1</text>
+            </svg>
+          </div>
+        </div>
+        <div class="fig-caption"><strong>Figure N.</strong> Strike price <em>S</em> [EUR/MWh] as a function of risk-aversion parameters. (a) Full (A_G, A_L) grid. (b) Slice at A_G = 0.5.</div>
+      </div>
+
+      <div class="paper-fig">
+        <div class="row-2col">
+          <div class="hmap-wrap">
+            <div class="subfig-label">(a)</div>
+            <div id="hm-m-fig1"></div>
+            <div style="font-size:8px;color:#555;text-align:center;margin-top:2px">A_L</div>
+          </div>
+          <div class="slice-wrap">
+            <div class="subfig-label">(b)</div>
+            <svg width="160" height="110">
+              <line x1="28" y1="10" x2="28" y2="90" stroke="#888" stroke-width="0.8"/>
+              <line x1="28" y1="90" x2="155" y2="90" stroke="#888" stroke-width="0.8"/>
+              <polyline points="28,88 48,86 68,80 88,65 108,46 128,34 148,26 155,23"
+                        fill="none" stroke="#E65100" stroke-width="1.8"/>
+              <text x="13" y="50" class="axis-label-txt" text-anchor="middle" transform="rotate(-90,13,50)">M [GWh/yr]</text>
+              <text x="92" y="103" class="axis-label-txt" text-anchor="middle">Load risk aversion A_L</text>
+              <text x="30" y="8" class="panel-title-txt">A_G = 0.5</text>
+              <text x="24" y="90" class="axis-tick" text-anchor="end">55</text>
+              <text x="24" y="24" class="axis-tick" text-anchor="end">155</text>
+              <text x="28" y="97" class="axis-tick" text-anchor="middle">0</text>
+              <text x="155" y="97" class="axis-tick" text-anchor="middle">1</text>
+            </svg>
+          </div>
+        </div>
+        <div class="fig-caption"><strong>Figure N+1.</strong> Contract volume <em>M</em> [GWh/yr] as a function of risk-aversion parameters. (a) Full (A_G, A_L) grid. (b) Slice at A_G = 0.5.</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A — Two figures (S and M separate)</h3>
+      <p>Each contract parameter gets its own figure with caption. Referenced as "Figure N" and "Figure N+1" independently in the text.</p>
+    </div>
+  </div>
+
+  <!-- Option B: One combined figure, 2×2 panels -->
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding:12px">
+      <div style="font-size:10px;color:#888;margin-bottom:6px;font-family:sans-serif">One paper figure (Figure N, panels a–d)</div>
+
+      <div class="paper-fig">
+        <!-- top row: S -->
+        <div class="row-2col" style="margin-bottom:6px">
+          <div class="hmap-wrap">
+            <div class="subfig-label">(a)</div>
+            <div id="hm-s-fig2"></div>
+            <div style="font-size:7px;color:#555;text-align:center;margin-top:1px">A_L</div>
+          </div>
+          <div class="slice-wrap">
+            <div class="subfig-label">(b)</div>
+            <svg width="155" height="85">
+              <line x1="26" y1="8" x2="26" y2="68" stroke="#888" stroke-width="0.8"/>
+              <line x1="26" y1="68" x2="148" y2="68" stroke="#888" stroke-width="0.8"/>
+              <polyline points="26,60 44,54 62,48 80,42 98,37 116,34 134,32 148,31"
+                        fill="none" stroke="#1565C0" stroke-width="1.6"/>
+              <text x="12" y="38" class="axis-label-txt" text-anchor="middle" transform="rotate(-90,12,38)" font-size="7">S [EUR/MWh]</text>
+              <text x="87" y="79" class="axis-label-txt" text-anchor="middle" font-size="7">A_L</text>
+              <text x="24" y="61" class="axis-tick" text-anchor="end">117</text>
+              <text x="24" y="11" class="axis-tick" text-anchor="end">128</text>
+            </svg>
+          </div>
+        </div>
+        <hr class="divider"/>
+        <!-- bottom row: M -->
+        <div class="row-2col">
+          <div class="hmap-wrap">
+            <div class="subfig-label">(c)</div>
+            <div id="hm-m-fig2"></div>
+            <div style="font-size:7px;color:#555;text-align:center;margin-top:1px">A_L</div>
+          </div>
+          <div class="slice-wrap">
+            <div class="subfig-label">(d)</div>
+            <svg width="155" height="85">
+              <line x1="26" y1="8" x2="26" y2="68" stroke="#888" stroke-width="0.8"/>
+              <line x1="26" y1="68" x2="148" y2="68" stroke="#888" stroke-width="0.8"/>
+              <polyline points="26,66 44,64 62,58 80,46 98,31 116,21 134,15 148,12"
+                        fill="none" stroke="#E65100" stroke-width="1.6"/>
+              <text x="12" y="38" class="axis-label-txt" text-anchor="middle" transform="rotate(-90,12,38)" font-size="7">M [GWh/yr]</text>
+              <text x="87" y="79" class="axis-label-txt" text-anchor="middle" font-size="7">A_L</text>
+              <text x="24" y="68" class="axis-tick" text-anchor="end">55</text>
+              <text x="24" y="11" class="axis-tick" text-anchor="end">155</text>
+            </svg>
+          </div>
+        </div>
+        <div class="fig-caption" style="margin-top:8px"><strong>Figure N.</strong> Nash bargaining outcomes as functions of risk-aversion parameters. (a,c) Full (A_G, A_L) sensitivity grid for strike price <em>S</em> and contract volume <em>M</em>, respectively. (b,d) Slice at A_G = 0.5.</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B — One figure (S and M combined, panels a–d)</h3>
+      <p>Single figure with panels (a)–(d). Keeps S and M spatially linked — reader sees both outcomes of the same bargaining problem together. One caption tells the whole story.</p>
+    </div>
+  </div>
+
+</div>
+
+<script>
+function viridis(t) {
+  const r = Math.round(68 + t*167); const g = Math.round(3 + t*174); const b = Math.round(84 - t*10);
+  return `rgb(${r},${g},${b})`;
+}
+function plasma(t) {
+  const r = Math.round(13 + t*227); const g = Math.round(8 + t*96); const b = Math.round(135 - t*115);
+  return `rgb(${r},${g},${b})`;
+}
+function buildHeatmap(id, n, size, cmap) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.innerHTML = '';
+  // Add A_G axis label
+  const wrap = document.createElement('div');
+  wrap.style.display = 'flex';
+  wrap.style.alignItems = 'center';
+  wrap.style.gap = '3px';
+  const yLabel = document.createElement('div');
+  yLabel.style.cssText = 'font-size:7px;color:#555;writing-mode:vertical-rl;transform:rotate(180deg);white-space:nowrap;';
+  yLabel.textContent = 'A_G';
+  const grid = document.createElement('div');
+  for (let r = 0; r < n; r++) {
+    const row = document.createElement('div');
+    row.className = 'hmap-row';
+    for (let c = 0; c < n; c++) {
+      const t = Math.max(0, Math.min(1, r*0.045 + c*0.055 + 0.02));
+      const cell = document.createElement('div');
+      cell.style.cssText = `display:inline-block;width:${size}px;height:${size}px;background:${cmap(t)};border-radius:1px;`;
+      row.appendChild(cell);
+    }
+    grid.appendChild(row);
+  }
+  wrap.appendChild(yLabel);
+  wrap.appendChild(grid);
+  el.appendChild(wrap);
+}
+buildHeatmap('hm-s-fig1', 12, 11, viridis);
+buildHeatmap('hm-m-fig1', 12, 11, plasma);
+buildHeatmap('hm-s-fig2', 10, 9,  viridis);
+buildHeatmap('hm-m-fig2', 10, 9,  plasma);
+</script>

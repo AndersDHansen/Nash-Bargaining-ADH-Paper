@@ -1,0 +1,102 @@
+<h2>Panel Orientation</h2>
+<p class="subtitle">Two panels (S and M), three lines each at A<sub>L</sub> ∈ {0.25, 0.50, 0.75}. How should they be arranged?</p>
+
+<div class="cards">
+
+  <!-- Option A: Vertical stack -->
+  <div class="card" data-choice="vertical" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="padding:10px;background:#f8f9fa;border-radius:4px">
+        <div style="text-align:center;font-weight:bold;font-size:11px;margin-bottom:8px">Vertical stack  (8 × 7 in)</div>
+
+        <!-- Panel S -->
+        <div style="border:1px solid #ccc;border-radius:3px;padding:6px 8px;margin-bottom:6px">
+          <div style="font-size:9px;color:#555;margin-bottom:2px">(a)  Strike price  <em>S</em>  [EUR/MWh]</div>
+          <svg width="100%" height="56" viewBox="0 0 220 56">
+            <!-- A_L=0.25 light blue -->
+            <polyline points="0,48 55,40 110,28 165,16 220,8" fill="none" stroke="#90CAF9" stroke-width="1.8"/>
+            <!-- A_L=0.50 mid blue -->
+            <polyline points="0,46 55,38 110,26 165,14 220,6" fill="none" stroke="#1E88E5" stroke-width="1.8"/>
+            <!-- A_L=0.75 dark blue -->
+            <polyline points="0,44 55,36 110,24 165,12 220,4" fill="none" stroke="#0D47A1" stroke-width="1.8"/>
+            <line x1="0" y1="54" x2="220" y2="54" stroke="#bbb" stroke-width="0.8"/>
+            <text x="2" y="53" font-size="7" fill="#999">τ_L=0</text>
+            <text x="185" y="53" font-size="7" fill="#999">τ_L=1</text>
+          </svg>
+          <div style="font-size:8px;color:#888;margin-top:2px">
+            <span style="color:#90CAF9">—</span> A_L=0.25 &nbsp;
+            <span style="color:#1E88E5">—</span> A_L=0.50 &nbsp;
+            <span style="color:#0D47A1">—</span> A_L=0.75
+          </div>
+        </div>
+
+        <!-- Panel M -->
+        <div style="border:1px solid #ccc;border-radius:3px;padding:6px 8px">
+          <div style="font-size:9px;color:#555;margin-bottom:2px">(b)  Contract volume  <em>M</em>  [MW]</div>
+          <svg width="100%" height="56" viewBox="0 0 220 56">
+            <!-- M is roughly flat in the data (very slight variation) -->
+            <polyline points="0,28 55,28 110,28 165,28 220,28" fill="none" stroke="#90CAF9" stroke-width="1.8"/>
+            <polyline points="0,26 55,26 110,26 165,26 220,26" fill="none" stroke="#1E88E5" stroke-width="1.8"/>
+            <polyline points="0,24 55,24 110,24 165,24 220,24" fill="none" stroke="#0D47A1" stroke-width="1.8"/>
+            <line x1="0" y1="54" x2="220" y2="54" stroke="#bbb" stroke-width="0.8"/>
+            <text x="2" y="53" font-size="7" fill="#999">τ_L=0</text>
+            <text x="185" y="53" font-size="7" fill="#999">τ_L=1</text>
+          </svg>
+          <div style="font-size:8px;color:#888;margin-top:2px">A_G = 0.5 fixed throughout</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>Vertical stack</h3>
+      <p>S on top, M on bottom — consistent with the existing Generator / Load earnings figures in the notebook. Tall, easy to read each panel independently.</p>
+    </div>
+  </div>
+
+  <!-- Option B: Side by side -->
+  <div class="card" data-choice="sidebyside" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="padding:10px;background:#f8f9fa;border-radius:4px">
+        <div style="text-align:center;font-weight:bold;font-size:11px;margin-bottom:8px">Side by side  (11 × 4 in)</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+
+          <!-- Panel S -->
+          <div style="border:1px solid #ccc;border-radius:3px;padding:5px">
+            <div style="font-size:9px;color:#555;margin-bottom:2px">(a)  S  [EUR/MWh]</div>
+            <svg width="100%" height="56" viewBox="0 0 100 56">
+              <polyline points="0,48 25,38 50,28 75,16 100,8" fill="none" stroke="#90CAF9" stroke-width="1.8"/>
+              <polyline points="0,46 25,36 50,26 75,14 100,6" fill="none" stroke="#1E88E5" stroke-width="1.8"/>
+              <polyline points="0,44 25,34 50,24 75,12 100,4" fill="none" stroke="#0D47A1" stroke-width="1.8"/>
+              <line x1="0" y1="54" x2="100" y2="54" stroke="#bbb" stroke-width="0.8"/>
+              <text x="1" y="53" font-size="7" fill="#999">0</text>
+              <text x="85" y="53" font-size="7" fill="#999">τ_L=1</text>
+            </svg>
+          </div>
+
+          <!-- Panel M -->
+          <div style="border:1px solid #ccc;border-radius:3px;padding:5px">
+            <div style="font-size:9px;color:#555;margin-bottom:2px">(b)  M  [MW]</div>
+            <svg width="100%" height="56" viewBox="0 0 100 56">
+              <polyline points="0,28 25,28 50,28 75,28 100,28" fill="none" stroke="#90CAF9" stroke-width="1.8"/>
+              <polyline points="0,26 25,26 50,26 75,26 100,26" fill="none" stroke="#1E88E5" stroke-width="1.8"/>
+              <polyline points="0,24 25,24 50,24 75,24 100,24" fill="none" stroke="#0D47A1" stroke-width="1.8"/>
+              <line x1="0" y1="54" x2="100" y2="54" stroke="#bbb" stroke-width="0.8"/>
+              <text x="1" y="53" font-size="7" fill="#999">0</text>
+              <text x="85" y="53" font-size="7" fill="#999">τ_L=1</text>
+            </svg>
+          </div>
+
+        </div>
+        <div style="font-size:8px;color:#888;margin-top:4px;text-align:center">
+          <span style="color:#90CAF9">—</span> A_L=0.25 &nbsp;
+          <span style="color:#1E88E5">—</span> A_L=0.50 &nbsp;
+          <span style="color:#0D47A1">—</span> A_L=0.75
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>Side by side</h3>
+      <p>S left, M right — compact, fits well on a paper page as a wide figure. Easier to compare S and M trends simultaneously.</p>
+    </div>
+  </div>
+
+</div>

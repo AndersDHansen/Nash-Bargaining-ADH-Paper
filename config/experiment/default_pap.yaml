@@ -37,6 +37,10 @@ K_L_prod: 0.0
 # Generator nameplate capacity [MW]. Must match scenario_gen.capacity_mw.
 generator_contract_capacity: 30
 
+# When true, contract_amount_min is set equal to contract_amount_max, fixing M
+# so only S is optimised. Used by the contract_size sensitivity sweep.
+fix_contract_size: false
+
 # Strike price bounds [EUR/GWh]
 strikeprice_min: 0.040
 strikeprice_max: 0.200

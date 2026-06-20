@@ -1,0 +1,134 @@
+<h2>How should we visualise M and S?</h2>
+<p class="subtitle">Data: 15×15 grid over (A_G, A_L). Pick the approach that best fits how you want to present these results.</p>
+
+<style>
+  .viz-mock { background:#1a1a2e; border-radius:8px; padding:12px; font-family:monospace; font-size:11px; }
+  .heatmap-row { display:flex; gap:2px; margin-bottom:2px; }
+  .cell { width:18px; height:18px; border-radius:2px; display:inline-block; flex-shrink:0; }
+  .axis-label { color:#aaa; font-size:10px; margin-bottom:4px; }
+  .chart-title { color:#eee; font-size:11px; margin-bottom:6px; font-weight:bold; }
+  .line-area { background:#0d1117; border-radius:6px; padding:8px; }
+  svg text { font-family: sans-serif; }
+</style>
+
+<div class="cards">
+
+  <!-- Option A: Heatmap -->
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="viz-mock">
+        <div class="chart-title">Strike Price S  [EUR/MWh]</div>
+        <div class="axis-label">↑ A_G (rows) | A_L → (cols)</div>
+        <div id="heatmap-s"></div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A — Heatmap (full grid)</h3>
+      <p>Shows the complete (A_G, A_L) surface in one glance. Natural for 2D sensitivity. Separate panels for S and M.</p>
+      <div class="pros-cons">
+        <div class="pros"><h4>Pros</h4><ul><li>Shows all 225 points</li><li>Reveals diagonal / off-diagonal patterns</li><li>Compact, publication-ready</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Hard to read exact values</li><li>Requires colour-scale annotation</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Option B: Line plot slice -->
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="viz-mock">
+        <div class="chart-title">S and M  |  A_G = 0.5 fixed</div>
+        <svg width="240" height="110" style="overflow:visible">
+          <!-- axes -->
+          <line x1="30" y1="10" x2="30" y2="90" stroke="#555" stroke-width="1"/>
+          <line x1="30" y1="90" x2="230" y2="90" stroke="#555" stroke-width="1"/>
+          <!-- S line (blue, left axis) ~122-124 range -->
+          <polyline points="30,80 55,74 80,68 105,62 130,56 155,52 180,50 205,49 230,48"
+                    fill="none" stroke="#2196F3" stroke-width="2"/>
+          <!-- M line (orange, right axis, different scale) -->
+          <polyline points="30,88 55,86 80,82 105,72 130,58 155,48 180,42 205,38 230,35"
+                    fill="none" stroke="#FF9800" stroke-width="2" stroke-dasharray="5,3"/>
+          <!-- labels -->
+          <text x="14" y="50" fill="#2196F3" font-size="9" text-anchor="middle">S</text>
+          <text x="235" y="38" fill="#FF9800" font-size="9">M</text>
+          <text x="130" y="103" fill="#aaa" font-size="9" text-anchor="middle">Load risk aversion A_L →</text>
+          <text x="0" y="14" fill="#aaa" font-size="8">high</text>
+          <text x="0" y="90" fill="#aaa" font-size="8">low</text>
+        </svg>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B — Line plot (A_G = 0.5 slice)</h3>
+      <p>Consistent with existing earnings cells. Shows S and M on dual y-axes, sweeping A_L. Simple, focused.</p>
+      <div class="pros-cons">
+        <div class="pros"><h4>Pros</h4><ul><li>Matches earnings plot style</li><li>Easy to read trends</li><li>Minimal new infrastructure</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Loses off-diagonal info</li><li>Dual y-axis can mislead scaling</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Option C: Both -->
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="viz-mock">
+        <div class="chart-title">Combined: heatmap + A_G = 0.5 slice</div>
+        <div style="display:flex;gap:8px;align-items:flex-start">
+          <div>
+            <div style="color:#aaa;font-size:9px;margin-bottom:3px">Full grid</div>
+            <div id="heatmap-s-small"></div>
+          </div>
+          <svg width="110" height="70" style="overflow:visible;margin-top:14px">
+            <line x1="15" y1="5" x2="15" y2="55" stroke="#555" stroke-width="1"/>
+            <line x1="15" y1="55" x2="105" y2="55" stroke="#555" stroke-width="1"/>
+            <polyline points="15,50 30,44 45,37 60,30 75,25 90,22 105,20"
+                      fill="none" stroke="#2196F3" stroke-width="1.5"/>
+            <polyline points="15,54 30,52 45,48 60,40 75,32 90,26 105,22"
+                      fill="none" stroke="#FF9800" stroke-width="1.5" stroke-dasharray="4,2"/>
+            <text x="60" y="65" fill="#aaa" font-size="8" text-anchor="middle">A_L →</text>
+          </svg>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C — Heatmap + slice (combined)</h3>
+      <p>Two cells: one heatmap cell (shows full grid), one line-plot cell (A_G = 0.5). Gives both the big picture and the detail.</p>
+      <div class="pros-cons">
+        <div class="pros"><h4>Pros</h4><ul><li>Most informative for a paper</li><li>Slice anchors the heatmap pattern</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>More cells in notebook</li><li>More implementation work</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// Build mini heatmap for S: 15x15, values ~117–128 EUR/MWh (cool=low, warm=high)
+function buildHeatmap(containerId, rows, cols, minV, maxV, cellSize) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  el.innerHTML = '';
+  for (let r = 0; r < rows; r++) {
+    const row = document.createElement('div');
+    row.className = 'heatmap-row';
+    for (let c = 0; c < cols; c++) {
+      // Diagonal pattern: values near r==c are lower (less agreement → lower strike?), off-diag higher
+      const diagBonus = Math.max(0, 1 - Math.abs(r - c) / 7);
+      const v = minV + (maxV - minV) * (r * 0.04 + c * 0.04 + diagBonus * 0.1 + Math.random() * 0.02);
+      const t = Math.max(0, Math.min(1, (v - minV) / (maxV - minV)));
+      // Viridis-ish palette
+      const r2 = Math.round(68 + t * 187);
+      const g2 = Math.round(1 + t * 182);
+      const b2 = Math.round(84 + t * (-84 + t * 90));
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      cell.style.width = cellSize + 'px';
+      cell.style.height = cellSize + 'px';
+      cell.style.background = `rgb(${r2},${g2},${b2})`;
+      cell.title = v.toFixed(1) + ' EUR/MWh';
+      row.appendChild(cell);
+    }
+    el.appendChild(row);
+  }
+}
+buildHeatmap('heatmap-s', 15, 15, 117, 128, 15);
+buildHeatmap('heatmap-s-small', 10, 10, 117, 128, 10);
+</script>

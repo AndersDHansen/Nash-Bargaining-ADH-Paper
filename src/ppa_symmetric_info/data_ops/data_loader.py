@@ -4,7 +4,7 @@ from pathlib import Path
 
 from omegaconf import DictConfig
 
-from ..utils import get_logger, cvar_left
+from ..utils import get_logger, cvar_left, _tail_avg
 
 log = get_logger(__name__)
 
@@ -61,9 +61,16 @@ class DataLoader:
         self.generator_contract_capacity = exp.generator_contract_capacity
         self.strikeprice_min = exp.strikeprice_min
         self.strikeprice_max = exp.strikeprice_max
+        self.gamma_min = 0.0
         self.gamma_max = exp.gamma_max
         self.contract_amount_min = 0
         self.contract_amount_max = self.generator_contract_capacity * 8760 * 1e-3  # GWh/year
+        if exp.get("fix_contract_size", False):
+            self.contract_amount_min = self.contract_amount_max  # fixes M for baseload
+            self.gamma_min = self.gamma_max                       # fixes gamma for PAP
+        if exp.get("fixed_M_MW", None) is not None:
+            # Pin M (baseload) to a chosen MW value, e.g. the mean optimal M from a prior sweep.
+            self.contract_amount_min = self.contract_amount_max = float(exp.fixed_M_MW) * 8760 * 1e-3
 
         # Run-level flags (all now inside the experiment file)
         self.contract_type = exp.contract_type
@@ -204,6 +211,32 @@ class DataLoader:
         self.d_L = (1 - self.A_L) * self.E_earnings_nc_L + self.A_L * cvar_nc_L
 
         log.info("Disagreement points: d_G=%.4f, d_L=%.4f", self.d_G, self.d_L)
+
+        # --- Reservation strikes (bargaining range edges), analytic — independent of the solve. ---
+        # Each party's break-even strike = risk-adjusted contract value / risk-adjusted volume,
+        # with the CVaR tail ranked by that party's no-contract earnings.
+        if self.contract_type == "pap":
+            # PAP settles a share of production against the capture price (thesis gamma->0 limit):
+            # the tail mask is then fixed, so the break-even strike is a closed-form ratio.
+            # Generator numerator is exactly d_G (risk-adjusted no-contract capture revenue).
+            den_G = (1 - self.A_G) * self.E_pap_prod_disc_G + self.A_G * _tail_avg(
+                self.pap_prod_disc_G, self.earnings_nc_G, prob, self.alpha)
+            num_L = (1 - self.A_L) * self.E_pap_gamma_coeff_L + self.A_L * _tail_avg(
+                self.pap_gamma_coeff_L, self.earnings_nc_L, prob, self.alpha)
+            den_L = (1 - self.A_L) * self.E_pap_prod_disc_L + self.A_L * _tail_avg(
+                self.pap_prod_disc_L, self.earnings_nc_L, prob, self.alpha)
+            self.SR_star = (self.d_G / den_G) * 1e3  # EUR/MWh, generator break-even (lower edge)
+            self.SU_star = (num_L / den_L) * 1e3     # EUR/MWh, load break-even (upper edge)
+        else:
+            # Baseload settles a fixed volume M against the spot price: risk-weighted mean price,
+            # tail ranked by no-contract earnings (generator -> low prices, load -> high prices).
+            tail_G = _tail_avg(self.lambda_disc_G, self.earnings_nc_G, prob, self.alpha)
+            tail_L = _tail_avg(self.lambda_disc_L, self.earnings_nc_L, prob, self.alpha)
+            term2_G = ((1 - self.A_G) * self.E_lambda_disc_G + self.A_G * tail_G) / self.disc_G_sum
+            term3_L = ((1 - self.A_L) * self.E_lambda_disc_L + self.A_L * tail_L) / self.disc_L_sum
+            self.SR_star = min(term2_G, term3_L) * 1e3  # EUR/MWh, lower edge
+            self.SU_star = max(term2_G, term3_L) * 1e3  # EUR/MWh, upper edge
+        log.info("Reservation strikes: SR*=%.2f, SU*=%.2f EUR/MWh", self.SR_star, self.SU_star)
 
     # @AndersDHansen do we need this function to exist?
     def _compute_strike_boundaries(self):

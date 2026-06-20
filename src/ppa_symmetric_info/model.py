@@ -127,8 +127,8 @@ class ModelNashBargaining:
 
         Share (gamma): fraction of the generator's actual production sold under the contract.
         """
-        # Contract share in [0, gamma_max]; bilinear with S and production in the utility expressions.
-        self.v.gamma = self.m.addVar(lb=0, ub=self.data.gamma_max, name="gamma")
+        # Contract share in [gamma_min, gamma_max]; bilinear with S and production in the utility expressions.
+        self.v.gamma = self.m.addVar(lb=self.data.gamma_min, ub=self.data.gamma_max, name="gamma")
         logger.info("Variables specific to Pay-as-Produced added")
 
     def _build_baseload_vars(self):

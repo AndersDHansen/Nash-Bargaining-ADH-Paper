@@ -18,7 +18,7 @@ def main(cfg: DictConfig):
     log.info("Run completed, good job champ :)")
 
     # Plot figures
-    
+    runner.plot_figures()
 
 
 if __name__ == "__main__":

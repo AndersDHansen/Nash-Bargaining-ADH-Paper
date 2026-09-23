@@ -26,7 +26,12 @@ from types import SimpleNamespace
 import numpy as np
 
 sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parent))
-from ppa_symmetric_info.analysis.gamma_engine import BaseloadNash, PapNash, load_data, tail_mean  # noqa: E402
+from ppa_symmetric_info.analysis.gamma_engine import (
+    BaseloadNash,
+    PapNash,
+    load_data,
+    tail_mean,
+)  # noqa: E402
 
 
 # ======================================================================================

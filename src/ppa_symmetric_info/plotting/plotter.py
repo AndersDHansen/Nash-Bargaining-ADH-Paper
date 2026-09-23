@@ -75,7 +75,9 @@ class Plotter:
         for d in Path(__file__).resolve().parents:
             if (d / "pyproject.toml").exists():
                 return d
-        raise RuntimeError("repository root not found: no pyproject.toml above this file")
+        raise RuntimeError(
+            "repository root not found: no pyproject.toml above this file"
+        )
 
     @staticmethod
     def _require(path: Path, how_to_make_it: str) -> Path:
@@ -113,7 +115,9 @@ class Plotter:
             ]
         }
         probs = pd.read_csv(d / f"probabilities_scenarios_{tag}.csv")
-        out["probability"] = probs["Probability"] if "Probability" in probs else probs.iloc[:, 0]
+        out["probability"] = (
+            probs["Probability"] if "Probability" in probs else probs.iloc[:, 0]
+        )
         return out
 
     def grid(self, experiment: str, sweep: str, metric: str) -> pd.DataFrame:

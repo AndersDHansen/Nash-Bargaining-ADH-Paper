@@ -1,166 +1,98 @@
 # Nash Bargaining for Power Purchase Agreements
 
-Nash Bargaining optimisation framework for negotiating Power Purchase Agreements (CPPAs) between a renewable-energy generator and a load, using Nash bargaining theory, CVaR, and Monte Carlo scenario analysis.
+Nash bargaining model for a Power Purchase Agreement between a renewable generator
+and a corporate buyer. Given price, production and consumption scenarios, it solves
+for the strike price and the contracted volume that a bargaining solution would
+produce, with mean-CVaR risk preferences on both sides.
 
-## Purpose
+This branch archives the codebase from the MSc thesis it accompanies. It is kept for
+reference and is no longer developed.
 
-This repository accompanies a master's thesis that models the contract negotiation between two parties:
+Two settlement structures are supported:
 
-- **Generator** — a renewable energy producer (wind/solar) selling electricity
-- **Load** — a corporate consumer purchasing electricity under a PPA
-
-The framework determines optimal **strike prices** and **contract amounts** by solving a Nash bargaining problem subject to individual rationality constraints. It supports two contract structures:
-
-| Contract Type | Description |
+| Structure | Contracted volume |
 |---|---|
-| **Baseload** | Fixed volume delivered every period |
-| **Pay-As-Produced (PAP)** | Volume follows actual renewable production |
+| Baseload | Fixed in every period |
+| Pay-as-produced (PAP) | A share of realised production |
 
-## Prerequisites
+## Requirements
 
-- **Python** 3.10+
-- **Gurobi** optimiser with a valid license (academic licenses are free)
-- The Python packages listed below
+- Python 3.10 or later
+- Gurobi with a valid license; academic licenses are free from
+  [gurobi.com/academia](https://www.gurobi.com/academia/academic-program-and-licenses/)
 
-### Key Dependencies
-
-| Package | Use |
-|---|---|
-| `gurobipy` | Mixed-integer / nonlinear optimisation (Nash bargaining) |
-| `numpy`, `pandas` | Data handling |
-| `scipy` | Statistical distributions, optimisation fallback |
-| `matplotlib`, `seaborn` | Plotting |
-| `scikit-learn`, `scikit-learn-extra` | K-Medoids scenario reduction |
-| `statsmodels` | Time-series modelling for scenario generation |
-| `tqdm` | Progress bars |
-
-## Installation
+## Setup
 
 ```bash
-# Clone the repository
-git clone https://github.com/<your-username>/Thesis-Repository.git
-cd Thesis-Repository
+git clone https://github.com/AndersDHansen/Nash-Bargaining-ADH-Paper.git
+cd Nash-Bargaining-ADH-Paper
+git checkout legacy
 
-# Create and activate a virtual environment (recommended)
 python -m venv .venv
-source .venv/bin/activate   # Linux / macOS
-.venv\Scripts\activate      # Windows
-
-# Install dependencies
-pip install numpy pandas scipy matplotlib seaborn scikit-learn scikit-learn-extra statsmodels gurobipy tqdm jupyter
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
+pip install -r Code/requirements.txt
 ```
 
-> **Note:** Gurobi requires a separate license. See [gurobi.com/academia](https://www.gurobi.com/academia/academic-program-and-licenses/) for free academic licenses.
+## Running
 
-## Quickstart
-
-All executable code lives in the `Code/` directory.
-
-### 1. Generate scenarios
+The scripts were written at different times and do not agree on a working
+directory, so each one below is launched the way it expects. All of them use flat
+imports, hence `PYTHONPATH=Code`.
 
 ```bash
-cd Code
-python generate_scenarios.py
+# 1. Monte Carlo scenarios -> Code/scenarios/*.csv   (run from the repository root)
+PYTHONPATH=Code python Code/generate_scenarios.py
+
+# 2. K-medoids reduction -> Code/scenarios/*_reduced_*.csv   (run from Code/)
+cd Code && python scenario_reduction.py && cd ..
+
+# 3. Negotiation and sensitivity sweeps -> Code/Results/, Code/Plots/   (repository root)
+PYTHONPATH=Code python Code/main_forecast.py
 ```
 
-This creates Monte Carlo price, production, load, and capture-rate scenario files in `Code/scenarios/`.
+Step 1 is slow and only needs repeating when the raw data or the scenario settings
+change. Steps 2 and 3 are cheap to rerun.
 
-### 2. Run the main analysis
-
-```bash
-python main_forecast.py
-```
-
-Runs contract negotiation, sensitivity analyses, and saves results to `Code/Results/` and plots to `Code/Plots/`.
-
-### 3. Interactive exploration (Jupyter)
-
-Open any of the notebooks for interactive analysis:
-
-```bash
-jupyter notebook Min_Max_strikeprices.ipynb
-```
-
-See `Analysis_Execution_Guide.md` in `Code/` for a step-by-step guide to the notebook analyses.
-
-## Data Flow
-
-```
-Raw Data (Code/Data/)
-    │
-    ▼
-generate_scenarios.py  →  Code/scenarios/*.csv
-                                │
-                                ▼
-                    scenario_reduction.py  →  Code/scenarios/*_reduced_*.csv
-                                                    │
-                                                    ▼
-                                        main_forecast.py  →  Code/Results/*.csv
-                                                           →  Code/Plots/*.png
-                                                    │
-                                                    ▼
-                                        Jupyter notebooks (interactive exploration)
-```
-
-## Two Workflows
-
-### Scenario Generation
-
-Run **once** (or whenever input data changes), then reuse the generated scenarios:
-
-1. `generate_scenarios.py` — reads raw data from `Code/Data/`, produces full Monte Carlo scenario sets in `Code/scenarios/`
-2. `scenario_reduction.py` — applies K-Medoids clustering to reduce scenarios, writing `*_reduced_*.csv` files back to `Code/scenarios/`
-
-### Optimization & Analysis
-
-Run as many times as needed for different contract configurations or sensitivity sweeps:
-
-- `main_forecast.py` — reads the reduced scenarios, solves the Nash bargaining problem, runs sensitivity analyses, and writes results to `Code/Results/` and figures to `Code/Plots/`
+`scenario_reduction.py` was exported from a notebook: it has no `__main__` guard and
+its horizon and scenario count are hardcoded near the top rather than read from
+`config_scenarios.py`. Edit them there if you change the generation settings.
 
 ## Configuration
 
-| File | Purpose |
+| File | Controls |
 |---|---|
-| `Code/config_scenarios.py` | Parameters for scenario generation (number of simulations, horizons, data paths) |
-| `Code/config_optimization.py` | Parameters for optimization and sensitivity analysis (risk levels, negotiation power, contract types) |
+| `Code/config_scenarios.py` | Scenario generation: horizon, number of draws, plant capacity, input paths |
+| `Code/config_optimization.py` | Risk aversion, bargaining power, contract type, which sensitivity sweeps run |
 
-## Folder Structure
+The scenario horizon and count in `config_optimization.py` must match the files
+actually present in `Code/scenarios/`, since they are used to build the filenames.
+
+## Layout
 
 ```
-Thesis-Repository/
-├── Code/
-│   ├── Data/                  # Raw input data
-│   │   ├── Solar/             # Solar production profiles (2020-2024)
-│   │   ├── Wind/              # Wind production profiles (2020-2024)
-│   │   ├── EnergyReport.csv   # Historical energy market data
-│   │   └── ConsumptionIndustry.csv
-│   ├── Plots/                 # Generated figures
-│   ├── Results/               # CSV/JSON output from analyses
-│   ├── scenarios/             # Generated Monte Carlo scenario files
-│   │
-│   ├── main_forecast.py       # Main entry point — runs negotiation + sensitivity
-│   ├── contract_negotiation.py # Nash bargaining solver (Gurobi + SciPy)
-│   ├── Barter_Set.py          # Barter set computation and visualisation
-│   ├── sensitivity_analysis.py # Parameter sweeps (risk, bias, negotiation power)
-│   ├── visualization.py       # Plotting utilities
-│   ├── dataloader.py          # Scenario loading and InputData class
-│   ├── utils.py               # Shared helpers (CVaR, forecasts, strike-price bounds)
-│   ├── generate_scenarios.py  # Monte Carlo scenario generation
-│   ├── run_negotiation_vs_risk.py # Negotiation-vs-risk comparison script
-│   ├── Plot_visualizations.py # Re-plot from saved results
-│   │
-│   ├── Min_Max_strikeprices.ipynb      # Main interactive analysis notebook
-│   ├── SR_SU_testing.ipynb             # Strike-price bound testing
-│   ├── Quickplots.ipynb                # Quick exploratory plots
-│   ├── Time_sensitivity.ipynb          # Time-horizon sensitivity
-│   ├── Barter_Set_Visualizer.ipynb     # Barter set exploration
-│   ├── scenario_reduction.ipynb        # Scenario reduction demo
-│   ├── test_cvar.ipynb                 # CVaR validation
-│   └── Analysis_Execution_Guide.md     # Step-by-step notebook guide
-│
-├── Project_Extensions_direction.drawio  # Project roadmap diagram
-├── .gitignore
-└── README.md
+Code/
+  generate_scenarios.py      Monte Carlo price, production, load, capture rates
+  scenario_reduction.py      K-medoids reduction of the generated scenarios
+  main_forecast.py           Entry point: negotiation plus sensitivity sweeps
+  contract_negotiation.py    Nash bargaining solver (Gurobi, SciPy fallback)
+  sensitivity_analysis.py    Parameter sweeps over risk, bias and bargaining power
+  Barter_Set.py              Barter set computation and plots
+  Min_Max_strikeprices.py    Reservation strike bounds
+  SR_SU_testing.py           Checks on those bounds
+  run_negotiation_vs_risk.py Negotiated terms against risk aversion
+  dataloader.py              Scenario loading and the InputData container
+  utils.py                   CVaR helpers, forecast provider, strike bounds
+  visualization.py           Plotting used by main_forecast
+  Plot_visualizations.py     Re-plots from saved results without re-solving
+  plotting/                  Figure modules: barter, boundary, earnings, sensitivity
+  Data/                      Raw inputs: wind, solar, prices, industrial consumption
+  scenarios/                 Generated and reduced scenario CSVs
+  Results/                   Solver output (git-ignored)
+  Plots/                     Generated figures (git-ignored)
 ```
 
+## Data
 
+`Code/Data/` holds hourly wind and solar profiles for 2020-2024, Danish day-ahead
+prices, and an industrial consumption profile. Solar files are present but the
+scenario generation is configured for wind.

@@ -20,7 +20,7 @@ D_L: 0.0
 # These move the STRIKE much more than the volume. With gamma unbounded and
 # symmetric info at load_scale=1.0, A_G from 0 to 1 moves gamma* only 2.36 -> 1.21,
 # and A_G = 0 removes the only brake on gamma entirely (it diverges).
-A_L: 0.8
+A_L: 0.5
 A_G: 0.5
 
 # Negotiation power: load's share of Nash surplus. Generator gets 1 - tau_L.
@@ -73,4 +73,4 @@ hedge_ratio_max: null
 
 # Multiplicative scale applied to the load's consumption after scenario loading.
 
-load_scale: 0.6
+load_scale: 0.4

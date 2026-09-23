@@ -10,24 +10,32 @@ about incomplete information moves to a second release.
 
 ---
 
-## 0. Where we are
+## 0. Where we are  (status 2026-09-23, end of day)
 
 Done:
 
-- [x] Section 1 rewritten: literature positioning verified against the primary sources,
-      gaps table rebuilt, three gaps, contributions aligned, "why the NBS" argument written
-      (strategic foundation + axiomatic characterisation + baseload coincidence).
-- [x] Deep review of the manuscript against model, code and data (2026-09-22).
-- [x] γ* diagnosis complete, with a first-order condition that matches the solver.
-- [x] Capture-rate bug found and fixed on branch `capture-rate-fix` (not yet committed,
-      scenarios regenerated only in a scratch directory).
+- [x] Section 1 rewritten and source-verified; three gaps; contributions aligned.
+- [x] Deep review of the manuscript against model, code and data.
+- [x] gamma* diagnosis complete, with a first-order condition matching the solver.
+- [x] Capture-rate fix **committed** (`f63c637`) and scenarios regenerated: the 500 and
+      2000 reduced sets both carry CR_G = 0.724 and CR_L = 1.031.
+- [x] Section 4 structure agreed; six subsection files exist and are wired into main.tex.
+- [x] Repo cleaned: `Code/`, dockerfiles, superpowers scaffolding, stale plots and solar
+      data removed; `analysis/` and `plotting/` moved under `src/`; notes and sources
+      moved to a git-ignored `notes/`; config trimmed 427 -> 274 lines; README rewritten.
+- [x] Plotting rebuilt as `Plotter` + `plotter_config`, wired into `Runner`. Data layer,
+      MissingResults reporting and probability-weighted statistics in place and verified.
+- [x] Pipeline runs end to end (`main.py ... scenario_gen=100_scenarios` verified).
 
-In progress:
+Not done:
 
-- [x] **Section 4 structure agreed** (§2 below), and the two open WP1 questions verified.
-- [ ] Section 4 and Section 5 do not exist yet (only planning comments).
-
----
+- [ ] **No sweep has been run.** `results/sensitivity/` is empty; only one single run
+      exists, and it is at the old base case (`load_scale 0.6`, `A_L 0.8`, gamma* = 1).
+- [ ] **All six figure bodies are stubs** (`raise NotImplementedError`).
+- [ ] Section 4 prose: 0 words. Section 5: 0 words.
+- [ ] No tests anywhere.
+- [ ] Mechanical manuscript defects from the September review are all still open.
+- [ ] Still IEEEtran with numeric citations; EJOR needs elsarticle and author-year.
 
 ## 1. Decisions to take first
 

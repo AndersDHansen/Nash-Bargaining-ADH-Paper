@@ -12,9 +12,13 @@ def main(cfg: DictConfig):
     log.info("Starting the runner")
 
     runner = Runner(cfg)
-    runner.run()
 
+    # Run selected configuration
+    runner.run()
     log.info("Run completed, good job champ :)")
+
+    # Plot figures
+    
 
 
 if __name__ == "__main__":

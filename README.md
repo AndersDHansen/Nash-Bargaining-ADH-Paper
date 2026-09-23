@@ -61,13 +61,11 @@ A single run writes to `results/single_run/{sim_name}/`, a sweep to
 Figures are built from those results, not from a fresh solve:
 
 ```bash
-uv run python -m ppa_symmetric_info.plotting.value_creation
-uv run python -m ppa_symmetric_info.plotting.value_allocation
-uv run python -m ppa_symmetric_info.plotting.case_study
+uv run python -c "from ppa_symmetric_info.plotting import Plotter; Plotter().plot_all_figures()"
 ```
 
-Each writes into `figures/` and reports clearly which sweep to run first if its inputs
-are missing.
+Each figure is one method on `Plotter`. A figure whose sweep has not been run is
+skipped with the command that produces it, so a stale plot is never written.
 
 ## Layout
 
@@ -84,7 +82,7 @@ src/ppa_symmetric_info/
   model.py                    Gurobi model of the bargaining problem
   data_ops/                   scenario generation, reduction, loading, sweeps
   analysis/                   closed-form solver used to verify the optimiser
-  plotting/                   paper figures
+  plotting/                   paper figures (Plotter) and their shared style
 data/raw/                     wind, price and consumption inputs
 data/processed/               generated scenarios (git-ignored)
 results/                      solver output (git-ignored)
@@ -111,14 +109,3 @@ uv run mkdocs serve -f docs/mkdocs.yaml
 | `quickstart.md` | Running the pipeline and approximate run times |
 | `model.md` | Mathematical formulation |
 | `configuration.md` | Every config key, and what moves the contracted quantity |
-
-## Run times
-
-Indicative, on the 500-scenario reduced set:
-
-| Step | Time |
-| --- | --- |
-| Scenario generation, 100k draws | ~5 min |
-| Reduction to 500 scenarios | ~1 min |
-| Single solve | ~7 min |
-| Risk aversion sweep, 11 x 11 | several hours |

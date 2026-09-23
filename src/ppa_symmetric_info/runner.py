@@ -1,6 +1,7 @@
 from .utils import get_logger
 from .data_ops import DataLoader, DataPreprocessor, DataPostprocessor, run_sensitivity
 from .model import ModelNashBargaining
+from .plotting import Plotter
 
 log = get_logger(__name__)
 
@@ -40,7 +41,6 @@ class Runner:
         self.load_data()
         self.solve_nbs_model()
         self.postprocess_data()
-        self.visualize_results()
 
     def sensitivity_run(self):
         """Run the sensitivity sweep defined in config.sensitivity."""
@@ -63,6 +63,6 @@ class Runner:
         """Extract and save results from the solved model."""
         DataPostprocessor(self.nbs_model).run()
 
-    def visualize_results(self):
-        # TODO: port Plotting_Class from Code/plotting/
-        pass
+    def plot_figures(self):
+        plotter = Plotter()
+        plotter.plot_all_figures()

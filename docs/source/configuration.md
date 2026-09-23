@@ -100,18 +100,23 @@ not hold a hedge larger than the exposure it hedges. With it set, the binding ca
 | --- | --- | --- |
 | `years` | `20` | Contract horizon in years |
 | `num_scenarios_mc` | `100000` | Monte Carlo draws |
-| `num_scenarios_reduced` | `500` | Representative scenarios after K-means reduction |
+| `num_scenarios_reduced` | `2000` | Representative scenarios after K-means reduction |
 | `monte_price` | `false` | Use normal price sampling instead of OU process |
 | `start_time` | `2025-01-01` | Reference start date for scenario time index |
 | `seed` | `42` | Random seed |
 | `capacity_mw` | `30` | Generator nameplate capacity in MW (must match `experiment.generator_contract_capacity`) |
 
-Presets for alternative reduction levels:
+The default is the paper's setting: 100000 draws reduced to 2000. One preset exists,
+for a fast smoke test:
 
 ```bash
-python main.py scenario_gen=100_scenarios    # fast testing
-python main.py scenario_gen=2000_scenarios
-python main.py scenario_gen=5000_scenarios
+python main.py scenario_gen=100_scenarios    # 10k draws reduced to 100
+```
+
+Any value can also be overridden directly:
+
+```bash
+python main.py scenario_gen.num_scenarios_reduced=500
 ```
 
 The same effect without a preset file:
@@ -120,7 +125,19 @@ The same effect without a preset file:
 python main.py scenario_gen.num_scenarios_reduced=2000
 ```
 
-Scenario files are cached in `data/processed/scenarios_reduced_{n}/`. Delete that folder to force regeneration.
+Scenario files are cached in `data/processed/scenarios_reduced_{n}/`.
+
+!!! warning "The cache key is only `years` and `num_scenarios_reduced`"
+    Changing `seed`, `capacity_mw`, `num_scenarios_mc`, `monte_price`, or the scenario
+    generation code itself does **not** invalidate the cache, so a rerun will silently
+    reuse the old scenarios. Delete `data/processed/` after any such change.
+
+    `monte_price` also renames the intermediate Monte Carlo folder but not the reduced
+    one, so the two price models overwrite each other in the same
+    `scenarios_reduced_{n}/`.
+
+The intermediate Monte Carlo folder is deleted once reduction finishes, so changing
+`num_scenarios_reduced` forces a full regeneration rather than a re-reduction.
 
 ---
 
@@ -144,6 +161,10 @@ python main.py sensitivity=risk_aversion
 | `asymmetric_info` | `K_G_price` x `K_L_price` | 10 x 10 |
 | `load_risk_aversion` | Monte Carlo draws of `A_L` | 500 samples |
 | `disagreement_point` | Forces `d_G` to zero | sanity check only |
+
+The first four produce paper figures. `load_risk_aversion` belongs to the
+incomplete-information extension and is not part of the base paper;
+`disagreement_point` is a diagnostic, not a result.
 
 Ranges are written as `{start, end, n}` and expanded with `numpy.linspace`, which includes
 both endpoints. A fixed list is written as `{discrete: [...]}`. A scalar pins that

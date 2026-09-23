@@ -2,7 +2,7 @@
 # Monte Carlo generation and K-means reduction. See docs/source/configuration.md
 
 num_scenarios_mc: 100000      # draws from the fitted distributions
-num_scenarios_reduced: 500    # representatives kept; names data/processed/scenarios_reduced_{n}/
+num_scenarios_reduced: 2000   # representatives kept; names data/processed/scenarios_reduced_{n}/
 seed: 42
 years: 20                     # scenario length; must match the contract horizon
 start_time: "2025-01-01"

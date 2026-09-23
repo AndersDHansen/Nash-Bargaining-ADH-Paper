@@ -51,3 +51,7 @@ strikeprice_max: 0.200
 
 # Maximum fraction of production contractable under PAP (unused for baseload).
 gamma_max: 1.0
+
+# Multiplicative scale applied to the load's consumption after scenario loading.
+# 1.0 = as sampled from historical data. Use e.g. 0.5 to test load < production regimes.
+load_scale: 1.0

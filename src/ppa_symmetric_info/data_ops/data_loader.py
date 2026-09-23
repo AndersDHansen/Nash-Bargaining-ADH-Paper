@@ -63,29 +63,42 @@ class DataLoader:
         self.strikeprice_max = exp.strikeprice_max
         self.gamma_min = 0.0
         self.gamma_max = exp.gamma_max
+        # Treasury cap as a fraction of the buyer's own exposure; null disables it.
+        # Turned into a gamma bound in _prepare_model_inputs, once volumes are known.
+        _hrm = exp.get("hedge_ratio_max", None)
+        self.hedge_ratio_max = None if _hrm is None else float(_hrm)
         self.contract_amount_min = 0
-        self.contract_amount_max = self.generator_contract_capacity * 8760 * 1e-3  # GWh/year
+        self.contract_amount_max = (
+            self.generator_contract_capacity * 8760 * 1e-3
+        )  # GWh/year
         if exp.get("fix_contract_size", False):
             self.contract_amount_min = self.contract_amount_max  # fixes M for baseload
-            self.gamma_min = self.gamma_max                       # fixes gamma for PAP
+            self.gamma_min = self.gamma_max  # fixes gamma for PAP
         if exp.get("fixed_M_MW", None) is not None:
             # Pin M (baseload) to a chosen MW value, e.g. the mean optimal M from a prior sweep.
-            self.contract_amount_min = self.contract_amount_max = float(exp.fixed_M_MW) * 8760 * 1e-3
+            self.contract_amount_min = self.contract_amount_max = (
+                float(exp.fixed_M_MW) * 8760 * 1e-3
+            )
 
         # Run-level flags (all now inside the experiment file)
         self.contract_type = exp.contract_type
         self.barter = exp.barter
         self.discount = exp.discount
+        self.load_scale = exp.get("load_scale", 1.0)
 
         # Paths
-        self.path_scenarios = Path(cfg.paths.processed.dir) / f"scenarios_reduced_{self.num_scenarios}"
+        self.path_scenarios = (
+            Path(cfg.paths.processed.dir) / f"scenarios_reduced_{self.num_scenarios}"
+        )
         if cfg.sensitivity.type != "none":
             self.path_results = (
                 Path(cfg.paths.results.sensitivity_dir)
                 / f"{exp.sim_name}_{cfg.sensitivity.type}"
             )
         else:
-            self.path_results = Path(cfg.paths.results.dir) / "single_run" / exp.sim_name
+            self.path_results = (
+                Path(cfg.paths.results.dir) / "single_run" / exp.sim_name
+            )
         self.path_plots = self.path_results / cfg.paths.results.plots
 
     def _load_scenarios(self):
@@ -93,11 +106,11 @@ class DataLoader:
         years, n = self.years, self.num_scenarios
         d = self.path_scenarios
 
-        price_df        = self._read_csv(d, "price", years, n)
-        production_df   = self._read_csv(d, "production", years, n)
+        price_df = self._read_csv(d, "price", years, n)
+        production_df = self._read_csv(d, "production", years, n)
         capture_rate_df = self._read_csv(d, "capture_rate", years, n)
-        load_df         = self._read_csv(d, "load", years, n)
-        load_cr_df      = self._read_csv(d, "load_capture_rate", years, n)
+        load_df = self._read_csv(d, "load", years, n)
+        load_cr_df = self._read_csv(d, "load_capture_rate", years, n)
 
         prob_path = d / f"probabilities_scenarios_reduced_{years}y_{n}s.csv"
         self.prob = pd.read_csv(prob_path)["Probability"].to_numpy()
@@ -107,54 +120,70 @@ class DataLoader:
         for df in (production_df, capture_rate_df, load_df, load_cr_df):
             df.columns = cols
 
-        self.price        = price_df.to_numpy()
-        self.production   = production_df.to_numpy()
+        self.price = price_df.to_numpy()
+        self.production = production_df.to_numpy()
         self.capture_rate = capture_rate_df.to_numpy()
-        self.load         = load_df.to_numpy()
-        self.load_cr      = load_cr_df.to_numpy()
+        self.load = load_df.to_numpy() * self.load_scale
+        self.load_cr = load_cr_df.to_numpy()
 
-        log.info("Strike price bounds: %.4f to %.4f", self.strikeprice_min, self.strikeprice_max)
+        log.info(
+            "Strike price bounds: %.4f to %.4f",
+            self.strikeprice_min,
+            self.strikeprice_max,
+        )
 
     def _prepare_model_inputs(self):
         """Derive all model inputs — biased distributions, capture prices, precomputed contract terms, and disagreement points."""
-        price        = self.price         # (years, scenarios) numpy — set in _load_scenarios
-        production   = self.production
+        price = self.price  # (years, scenarios) numpy — set in _load_scenarios
+        production = self.production
         capture_rate = self.capture_rate
-        load         = self.load
-        load_cr      = self.load_cr
-        prob         = self.prob          # (scenarios,)
+        load = self.load
+        load_cr = self.load_cr
+        prob = self.prob  # (scenarios,)
 
         # Discount factors — shape (years, 1) so they broadcast over scenarios
         if self.discount:
-            self.discount_factors_G = (1 / (1 + self.D_G) ** np.arange(self.years))[:, None]
-            self.discount_factors_L = (1 / (1 + self.D_L) ** np.arange(self.years))[:, None]
+            self.discount_factors_G = (1 / (1 + self.D_G) ** np.arange(self.years))[
+                :, None
+            ]
+            self.discount_factors_L = (1 / (1 + self.D_L) ** np.arange(self.years))[
+                :, None
+            ]
         else:
             self.discount_factors_G = np.ones((self.years, 1))
             self.discount_factors_L = np.ones((self.years, 1))
 
         # Expected price and production per year — shape (years, 1) for broadcasting
-        expected_price      = (price      * prob).sum(axis=1, keepdims=True)
+        expected_price = (price * prob).sum(axis=1, keepdims=True)
         expected_production = (production * prob).sum(axis=1, keepdims=True)
 
         # Biased scenario distributions — shape (years, scenarios)
-        self.price_G      = price      + self.K_G_price * expected_price
-        self.price_L      = price      + self.K_L_price * expected_price
-        self.production_G = production + self.K_G_prod  * expected_production   # Belief of G
-        self.production_L = production + self.K_L_prod  * expected_production   # Belief of L
+        self.price_G = price + self.K_G_price * expected_price
+        self.price_L = price + self.K_L_price * expected_price
+        self.production_G = (
+            production + self.K_G_prod * expected_production
+        )  # Belief of G
+        self.production_L = (
+            production + self.K_L_prod * expected_production
+        )  # Belief of L
 
         # --- Capture prices (true distribution, used for post-processing) ---
         # Seller (generator): revenue rate per unit production
-        self.capture_price_G     = capture_rate * price          # (years, scenarios)
-        self.capture_price_G_avg = (self.capture_price_G * prob).sum(axis=1, keepdims=True)
+        self.capture_price_G = capture_rate * price  # (years, scenarios)
+        self.capture_price_G_avg = (self.capture_price_G * prob).sum(
+            axis=1, keepdims=True
+        )
 
         # Buyer (load): cost rate per unit consumption
-        self.capture_price_L     = load_cr * price               # (years, scenarios)
-        self.capture_price_L_avg = (self.capture_price_L * prob).sum(axis=1, keepdims=True)
+        self.capture_price_L = load_cr * price  # (years, scenarios)
+        self.capture_price_L_avg = (self.capture_price_L * prob).sum(
+            axis=1, keepdims=True
+        )
 
         # --- Biased capture prices (each party's belief, used in model constraints) ---
         # Generator believes prices are price_G; load believes prices are price_L
         self.capture_price_G_biased = capture_rate * self.price_G  # (years, scenarios)
-        self.capture_price_L_biased = load_cr      * self.price_L  # (years, scenarios)
+        self.capture_price_L_biased = load_cr * self.price_L  # (years, scenarios)
 
         # --- No-contract per-scenario earnings, summed over years (with discounting) ---
         # Generator: sells renewable production at capture rate × biased price
@@ -170,7 +199,9 @@ class DataLoader:
         # --- Precomputed terms for model constraints (PAP) ---
         # Per-scenario discounted production sum for G: sum_t disc_t * P^G_{t,omega}
         # Coefficient on gamma*S in both the utility and CVaR constraints.
-        self.pap_prod_disc_G = (self.discount_factors_G * self.production_G).sum(axis=0)  # (scenarios,)
+        self.pap_prod_disc_G = (self.discount_factors_G * self.production_G).sum(
+            axis=0
+        )  # (scenarios,)
 
         # Per-scenario coefficient on gamma in load's utility/CVaR: sum_t disc_t * P^G_{t,omega} * CR^G_{t,omega} * lambda^L_{t,omega}
         # Load values the contracted wind volume at the generator's capture rate × load's biased price.
@@ -179,27 +210,60 @@ class DataLoader:
         ).sum(axis=0)  # (scenarios,)
 
         # Per-scenario coefficient on gamma*S in load's utility/CVaR: -sum_t disc_t * P^G_{t,omega}
-        self.pap_prod_disc_L = (self.discount_factors_L * self.production_G).sum(axis=0)  # (scenarios,)
+        self.pap_prod_disc_L = (self.discount_factors_L * self.production_G).sum(
+            axis=0
+        )  # (scenarios,)
 
         # Probability-weighted scalars for PAP utility constraints
-        self.E_pap_prod_disc_G  = float((prob * self.pap_prod_disc_G).sum())
+        self.E_pap_prod_disc_G = float((prob * self.pap_prod_disc_G).sum())
         self.E_pap_gamma_coeff_L = float((prob * self.pap_gamma_coeff_L).sum())
-        self.E_pap_prod_disc_L  = float((prob * self.pap_prod_disc_L).sum())
+        self.E_pap_prod_disc_L = float((prob * self.pap_prod_disc_L).sum())
+
+        # --- Buyer exposure and the hedge-ratio cap (PAP) ---
+        # Discounted consumption volume per scenario, the quantity a PAP hedge is written
+        # against. Used to express the treasury limit "hedge no more than your exposure".
+        self.load_disc = (self.discount_factors_L * self.load).sum(
+            axis=0
+        )  # (scenarios,)
+        self.E_load_disc = float((prob * self.load_disc).sum())
+
+        # Buyer consumption as a multiple of plant output. gamma = load_over_prod means the
+        # contract covers exactly 100% of the buyer's consumption.
+        self.load_over_prod = self.E_load_disc / self.E_pap_prod_disc_G
+
+        # hedge_ratio_max (read in __init__) caps the contract at that fraction of the
+        # buyer's exposure. The binding cap is the tighter of this and the physical gamma_max.
+        if self.hedge_ratio_max is not None:
+            self.gamma_hedge_cap = self.hedge_ratio_max * self.load_over_prod
+            log.info(
+                "Hedge-ratio cap active: buyer consumes %.3f x plant output, "
+                "hedge_ratio_max=%.2f => gamma <= %.4f (physical cap %.4f)",
+                self.load_over_prod,
+                self.hedge_ratio_max,
+                self.gamma_hedge_cap,
+                self.gamma_max,
+            )
+        else:
+            self.gamma_hedge_cap = None
 
         # --- Precomputed terms for model constraints (Baseload) ---
         # Discounted price sums per scenario: sum_t disc_t * lambda^i_{t,omega}
-        self.lambda_disc_G = (self.discount_factors_G * self.price_G).sum(axis=0)  # (scenarios,)
-        self.lambda_disc_L = (self.discount_factors_L * self.price_L).sum(axis=0)  # (scenarios,)
+        self.lambda_disc_G = (self.discount_factors_G * self.price_G).sum(
+            axis=0
+        )  # (scenarios,)
+        self.lambda_disc_L = (self.discount_factors_L * self.price_L).sum(
+            axis=0
+        )  # (scenarios,)
 
         # Sum of discount factors: sum_t disc_t  (scalar coefficient on S*M in earnings)
         self.disc_G_sum = float(self.discount_factors_G.sum())
         self.disc_L_sum = float(self.discount_factors_L.sum())
 
         # Probability-weighted expected values (scalar, for objective expressions)
-        self.E_earnings_nc_G  = float((prob * self.earnings_nc_G).sum())
-        self.E_earnings_nc_L  = float((prob * self.earnings_nc_L).sum())
-        self.E_lambda_disc_G  = float((prob * self.lambda_disc_G).sum())
-        self.E_lambda_disc_L  = float((prob * self.lambda_disc_L).sum())
+        self.E_earnings_nc_G = float((prob * self.earnings_nc_G).sum())
+        self.E_earnings_nc_L = float((prob * self.earnings_nc_L).sum())
+        self.E_lambda_disc_G = float((prob * self.lambda_disc_G).sum())
+        self.E_lambda_disc_L = float((prob * self.lambda_disc_L).sum())
 
         # --- CVaR of no-contract earnings (left tail, worst outcomes) ---
         cvar_nc_G = cvar_left(self.earnings_nc_G, prob, self.alpha)
@@ -220,23 +284,38 @@ class DataLoader:
             # the tail mask is then fixed, so the break-even strike is a closed-form ratio.
             # Generator numerator is exactly d_G (risk-adjusted no-contract capture revenue).
             den_G = (1 - self.A_G) * self.E_pap_prod_disc_G + self.A_G * _tail_avg(
-                self.pap_prod_disc_G, self.earnings_nc_G, prob, self.alpha)
+                self.pap_prod_disc_G, self.earnings_nc_G, prob, self.alpha
+            )
             num_L = (1 - self.A_L) * self.E_pap_gamma_coeff_L + self.A_L * _tail_avg(
-                self.pap_gamma_coeff_L, self.earnings_nc_L, prob, self.alpha)
+                self.pap_gamma_coeff_L, self.earnings_nc_L, prob, self.alpha
+            )
             den_L = (1 - self.A_L) * self.E_pap_prod_disc_L + self.A_L * _tail_avg(
-                self.pap_prod_disc_L, self.earnings_nc_L, prob, self.alpha)
-            self.SR_star = (self.d_G / den_G) * 1e3  # EUR/MWh, generator break-even (lower edge)
-            self.SU_star = (num_L / den_L) * 1e3     # EUR/MWh, load break-even (upper edge)
+                self.pap_prod_disc_L, self.earnings_nc_L, prob, self.alpha
+            )
+            self.SR_star = (
+                self.d_G / den_G
+            ) * 1e3  # EUR/MWh, generator break-even (lower edge)
+            self.SU_star = (
+                num_L / den_L
+            ) * 1e3  # EUR/MWh, load break-even (upper edge)
         else:
             # Baseload settles a fixed volume M against the spot price: risk-weighted mean price,
             # tail ranked by no-contract earnings (generator -> low prices, load -> high prices).
             tail_G = _tail_avg(self.lambda_disc_G, self.earnings_nc_G, prob, self.alpha)
             tail_L = _tail_avg(self.lambda_disc_L, self.earnings_nc_L, prob, self.alpha)
-            term2_G = ((1 - self.A_G) * self.E_lambda_disc_G + self.A_G * tail_G) / self.disc_G_sum
-            term3_L = ((1 - self.A_L) * self.E_lambda_disc_L + self.A_L * tail_L) / self.disc_L_sum
+            term2_G = (
+                (1 - self.A_G) * self.E_lambda_disc_G + self.A_G * tail_G
+            ) / self.disc_G_sum
+            term3_L = (
+                (1 - self.A_L) * self.E_lambda_disc_L + self.A_L * tail_L
+            ) / self.disc_L_sum
             self.SR_star = min(term2_G, term3_L) * 1e3  # EUR/MWh, lower edge
             self.SU_star = max(term2_G, term3_L) * 1e3  # EUR/MWh, upper edge
-        log.info("Reservation strikes: SR*=%.2f, SU*=%.2f EUR/MWh", self.SR_star, self.SU_star)
+        log.info(
+            "Reservation strikes: SR*=%.2f, SU*=%.2f EUR/MWh",
+            self.SR_star,
+            self.SU_star,
+        )
 
     # @AndersDHansen do we need this function to exist?
     def _compute_strike_boundaries(self):

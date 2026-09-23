@@ -5,9 +5,9 @@ type: asymmetric_info
 K_G_price:
   start: -0.5
   end: 0.5
-  n: 101
+  n: 10
 
 K_L_price:
   start: -0.5
   end: 0.5
-  n: 101
+  n: 10

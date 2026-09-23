@@ -55,6 +55,16 @@ class ModelNashBargaining:
         # Save the resolved Hydra config for this run
         OmegaConf.save(self.data.config, self.path_config)
 
+        # Drop any FileHandler left over from a previous solve in this sweep -- without
+        # this, every point in a multi-point sensitivity sweep leaves its handler attached,
+        # so log lines get duplicated once per prior point and file handles accumulate
+        # unboundedly (500 solves -> 500 open handles all writing simultaneously).
+        root_logger = logging.getLogger()
+        for h in list(root_logger.handlers):
+            if isinstance(h, logging.FileHandler):
+                root_logger.removeHandler(h)
+                h.close()
+
         # Add a file handler so the full pipeline log is captured in run.log
         handler = logging.FileHandler(self.path_log, mode="w")
         handler.setLevel(logging.DEBUG)
@@ -128,8 +138,23 @@ class ModelNashBargaining:
         Share (gamma): fraction of the generator's actual production sold under the contract.
         """
         # Contract share in [gamma_min, gamma_max]; bilinear with S and production in the utility expressions.
-        self.v.gamma = self.m.addVar(lb=self.data.gamma_min, ub=self.data.gamma_max, name="gamma")
+        self.v.gamma = self.m.addVar(
+            lb=self.data.gamma_min, ub=self.data.gamma_max, name="gamma"
+        )
         logger.info("Variables specific to Pay-as-Produced added")
+
+        # Optional treasury limit: the contract may not hedge more than the buyer's own
+        # exposure. This is a financial CfD, so nothing physically stops over-contracting;
+        # the limit is a hedge-designation rule, not a delivery constraint. Distinct from
+        # gamma_max, which is the physical "a plant cannot sell what it does not generate".
+        if getattr(self.data, "gamma_hedge_cap", None) is not None:
+            self.m.addConstr(
+                self.v.gamma <= self.data.gamma_hedge_cap, name="cons_hedge_ratio_cap"
+            )
+            logger.info(
+                "Hedge-ratio cap constraint added: gamma <= %.4f",
+                self.data.gamma_hedge_cap,
+            )
 
     def _build_baseload_vars(self):
         """Add decision variables specific to the Baseload contract.
@@ -169,7 +194,9 @@ class ModelNashBargaining:
         # Generator earnings: uncontracted share sold at capture price, contracted share at S.
         # Eq 4.19: (1-gamma)*CR^G*lambda^G*P^G + gamma*S*P^G, discounted over years.
         earnings_G_matrix = self.data.discount_factors_G * (
-            (1 - self.v.gamma) * self.data.capture_price_G_biased * self.data.production_G
+            (1 - self.v.gamma)
+            * self.data.capture_price_G_biased
+            * self.data.production_G
             + self.v.gamma * self.v.S * self.data.production_G
         )
 
@@ -179,7 +206,8 @@ class ModelNashBargaining:
         # biased price (price_L). capture_rate_np is needed here — not available via biased products.
         earnings_L_matrix = self.data.discount_factors_L * (
             -self.data.capture_price_L_biased * self.data.load
-            + self.v.gamma * self.data.production_G
+            + self.v.gamma
+            * self.data.production_G
             * (self.data.capture_rate * self.data.price_L - self.v.S)
         )
 
@@ -221,7 +249,8 @@ class ModelNashBargaining:
                 self.v.eta_G[s]
                 >= self.v.zeta_G
                 - self.data.earnings_nc_G[s]
-                - self.v.gamma * (self.v.S * self.data.pap_prod_disc_G[s] - self.data.earnings_nc_G[s])
+                - self.v.gamma
+                * (self.v.S * self.data.pap_prod_disc_G[s] - self.data.earnings_nc_G[s])
                 for s in range(self.data.num_scenarios)
             ),
             name="eta_G_pap_cvar",
@@ -373,4 +402,3 @@ class ModelNashBargaining:
         self.m.write(str(self.path_model_lp))
         self.m.write(str(self.path_model_mps))
         logger.info("Model files saved to %s", self.path_sim)
-

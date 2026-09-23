@@ -16,19 +16,52 @@ log = get_logger(__name__)
 # fallback rows when a solve point is infeasible or unbounded.
 _SCALAR_KEYS: dict[str, list[str]] = {
     "baseload": [
-        "objective_value", "S_EUR_MWh", "SR_star", "SU_star", "disagreement_G", "disagreement_L",
-        "delta_G", "delta_L", "nash_product", "utility_G", "utility_L",
-        "cvar_G", "cvar_L", "utility_G_cp", "utility_L_cp", "M_GWh_year", "M_MWh_h",
+        "objective_value",
+        "S_EUR_MWh",
+        "SR_star",
+        "SU_star",
+        "disagreement_G",
+        "disagreement_L",
+        "delta_G",
+        "delta_L",
+        "nash_product",
+        "utility_G",
+        "utility_L",
+        "cvar_G",
+        "cvar_L",
+        "utility_G_cp",
+        "utility_L_cp",
+        "M_GWh_year",
+        "M_MWh_h",
     ],
     "pap": [
-        "objective_value", "S_EUR_MWh", "SR_star", "SU_star", "disagreement_G", "disagreement_L",
-        "delta_G", "delta_L", "nash_product", "utility_G", "utility_L",
-        "cvar_G", "cvar_L", "utility_G_cp", "utility_L_cp", "gamma", "M_GWh_year", "M_MWh_h",
+        "objective_value",
+        "S_EUR_MWh",
+        "SR_star",
+        "SU_star",
+        "disagreement_G",
+        "disagreement_L",
+        "delta_G",
+        "delta_L",
+        "nash_product",
+        "utility_G",
+        "utility_L",
+        "cvar_G",
+        "cvar_L",
+        "utility_G_cp",
+        "utility_L_cp",
+        "gamma",
+        "M_GWh_year",
+        "M_MWh_h",
     ],
 }
 _EARNINGS_COLS = [
-    "earnings_G", "earnings_L", "earnings_G_cp", "earnings_L_cp",
-    "earnings_nc_G", "earnings_nc_L",
+    "earnings_G",
+    "earnings_L",
+    "earnings_G_cp",
+    "earnings_L_cp",
+    "earnings_nc_G",
+    "earnings_nc_L",
 ]
 
 
@@ -62,15 +95,27 @@ def build_sensitivity_grid(sens_cfg, config) -> list[dict]:
         if config.experiment.contract_type == "baseload":
             M_MW = np.linspace(sens_cfg.M_MW.start, sens_cfg.M_MW.end, sens_cfg.M_MW.n)
             return [
-                {"generator_contract_capacity": float(m), "fix_contract_size": True,
-                 "A_G": A_G, "A_L": float(al), "tau_L": float(tl)}
+                {
+                    "generator_contract_capacity": float(m),
+                    "fix_contract_size": True,
+                    "A_G": A_G,
+                    "A_L": float(al),
+                    "tau_L": float(tl),
+                }
                 for m, al, tl in itertools.product(M_MW, A_L, tau_L)
             ]
         else:  # pap
-            gamma = np.linspace(sens_cfg.gamma.start, sens_cfg.gamma.end, sens_cfg.gamma.n)
+            gamma = np.linspace(
+                sens_cfg.gamma.start, sens_cfg.gamma.end, sens_cfg.gamma.n
+            )
             return [
-                {"gamma_max": float(g), "fix_contract_size": True,
-                 "A_G": A_G, "A_L": float(al), "tau_L": float(tl)}
+                {
+                    "gamma_max": float(g),
+                    "fix_contract_size": True,
+                    "A_G": A_G,
+                    "A_L": float(al),
+                    "tau_L": float(tl),
+                }
                 for g, al, tl in itertools.product(gamma, A_L, tau_L)
             ]
 
@@ -169,9 +214,17 @@ def _run_load_risk_aversion(config, sens, out_path) -> None:
         rows = []
         for i, al in enumerate(A_L):
             point = {**base, "A_L": float(al), **extra}
-            log.info("load_risk_aversion %d/%d: A_L=%.4f %s", i + 1, len(A_L), al, extra or "")
+            log.info(
+                "load_risk_aversion %d/%d: A_L=%.4f %s",
+                i + 1,
+                len(A_L),
+                al,
+                extra or "",
+            )
             scalars, _ = _solve_point(config, point, sens)
-            rows.append({**point, **scalars, "feasible": not np.isnan(scalars["S_EUR_MWh"])})
+            rows.append(
+                {**point, **scalars, "feasible": not np.isnan(scalars["S_EUR_MWh"])}
+            )
         return pd.DataFrame(rows)
 
     if config.experiment.contract_type == "baseload":
@@ -187,7 +240,7 @@ def _run_load_risk_aversion(config, sens, out_path) -> None:
 
 # Maps cartesian sensitivity types to their (row, column) parameter names.
 _CARTESIAN_PARAMS: dict[str, tuple[str, str]] = {
-    "risk_aversion":  ("A_G", "A_L"),
+    "risk_aversion": ("A_G", "A_L"),
     "asymmetric_info": ("K_G_price", "K_L_price"),
 }
 
@@ -221,6 +274,8 @@ def _save_earnings_grids(
             for point, df in earnings_list
         }
         out_df = pd.DataFrame(data, index=earnings_list[0][1].index)
-        out_df.columns = pd.MultiIndex.from_tuples(out_df.columns, names=[row_param, col_param])
+        out_df.columns = pd.MultiIndex.from_tuples(
+            out_df.columns, names=[row_param, col_param]
+        )
         out_df.to_csv(out_path / f"{metric}.csv")
     log.info("Earnings grid CSVs written for %d metrics", len(metrics))

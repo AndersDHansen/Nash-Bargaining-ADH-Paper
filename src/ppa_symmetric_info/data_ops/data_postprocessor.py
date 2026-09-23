@@ -34,36 +34,43 @@ class DataPostprocessor:
         delta_L = utility_L - d.d_L
 
         self.scalars = {
-            "objective_value":  self.model.m.ObjVal,
-            "S_EUR_MWh":        S * 1e3,
-            "SR_star":          d.SR_star,
-            "SU_star":          d.SU_star,
-            "disagreement_G":   d.d_G,
-            "disagreement_L":   d.d_L,
-            "delta_G":          delta_G,
-            "delta_L":          delta_L,
-            "nash_product":     delta_G * delta_L,
-            "utility_G":        utility_G,
-            "utility_L":        utility_L,
-            "cvar_G":           cvar_G,
-            "cvar_L":           cvar_L,
-            "utility_G_cp":     (1 - d.A_G) * float((d.prob * earnings_G_cp).sum()) + d.A_G * cvar_left(earnings_G_cp, d.prob, d.alpha),
-            "utility_L_cp":     (1 - d.A_L) * float((d.prob * earnings_L_cp).sum()) + d.A_L * cvar_left(earnings_L_cp, d.prob, d.alpha),
+            "objective_value": self.model.m.ObjVal,
+            "S_EUR_MWh": S * 1e3,
+            "SR_star": d.SR_star,
+            "SU_star": d.SU_star,
+            "disagreement_G": d.d_G,
+            "disagreement_L": d.d_L,
+            "delta_G": delta_G,
+            "delta_L": delta_L,
+            "nash_product": delta_G * delta_L,
+            "utility_G": utility_G,
+            "utility_L": utility_L,
+            "cvar_G": cvar_G,
+            "cvar_L": cvar_L,
+            "utility_G_cp": (1 - d.A_G) * float((d.prob * earnings_G_cp).sum())
+            + d.A_G * cvar_left(earnings_G_cp, d.prob, d.alpha),
+            "utility_L_cp": (1 - d.A_L) * float((d.prob * earnings_L_cp).sum())
+            + d.A_L * cvar_left(earnings_L_cp, d.prob, d.alpha),
             **self._contract_scalars(S),
         }
 
-        self.earnings = pd.DataFrame({
-            "earnings_G":    earnings_G,
-            "earnings_L":    earnings_L,
-            "earnings_G_cp": earnings_G_cp,
-            "earnings_L_cp": earnings_L_cp,
-            "earnings_nc_G": d.earnings_nc_G,
-            "earnings_nc_L": d.earnings_nc_L,
-        })
+        self.earnings = pd.DataFrame(
+            {
+                "earnings_G": earnings_G,
+                "earnings_L": earnings_L,
+                "earnings_G_cp": earnings_G_cp,
+                "earnings_L_cp": earnings_L_cp,
+                "earnings_nc_G": d.earnings_nc_G,
+                "earnings_nc_L": d.earnings_nc_L,
+            }
+        )
 
         logger.info(
             "Results extracted: S=%.4f EUR/MWh, delta_G=%.4f, delta_L=%.4f, Nash=%.6f",
-            S * 1e3, delta_G, delta_L, delta_G * delta_L,
+            S * 1e3,
+            delta_G,
+            delta_L,
+            delta_G * delta_L,
         )
 
     def save_results(self):
@@ -100,8 +107,12 @@ class DataPostprocessor:
             settlement_L_cp = M * (d.lambda_disc_L - cp_L_disc)
         else:
             gamma = v.gamma.X
-            cp_pap_G = (d.discount_factors_G * d.capture_price_G_avg * d.production_G).sum(axis=0)
-            cp_pap_L = (d.discount_factors_L * d.production_G * d.capture_price_G_avg).sum(axis=0)
+            cp_pap_G = (
+                d.discount_factors_G * d.capture_price_G_avg * d.production_G
+            ).sum(axis=0)
+            cp_pap_L = (
+                d.discount_factors_L * d.production_G * d.capture_price_G_avg
+            ).sum(axis=0)
             settlement_G_cp = gamma * (cp_pap_G - d.earnings_nc_G)
             settlement_L_cp = gamma * (d.pap_gamma_coeff_L - cp_pap_L)
         return d.earnings_nc_G + settlement_G_cp, d.earnings_nc_L + settlement_L_cp
@@ -116,8 +127,7 @@ class DataPostprocessor:
         else:
             gamma = v.gamma.X
             return {
-                "gamma":       gamma,
-                "M_GWh_year":  gamma * d.generator_contract_capacity * 8760 * 1e-3,
-                "M_MWh_h":     gamma * d.generator_contract_capacity,
+                "gamma": gamma,
+                "M_GWh_year": gamma * d.generator_contract_capacity * 8760 * 1e-3,
+                "M_MWh_h": gamma * d.generator_contract_capacity,
             }
-

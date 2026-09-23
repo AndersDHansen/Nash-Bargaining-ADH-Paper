@@ -13,7 +13,9 @@ def cvar_left(x: np.ndarray, prob: np.ndarray, alpha: float) -> float:
     return _tail_avg(x, x, prob, alpha)
 
 
-def _tail_avg(value: np.ndarray, order_by: np.ndarray, prob: np.ndarray, alpha: float) -> float:
+def _tail_avg(
+    value: np.ndarray, order_by: np.ndarray, prob: np.ndarray, alpha: float
+) -> float:
     """Prob-weighted mean of `value` over the worst (1-alpha) mass ranked by `order_by`.
 
     Generalises cvar_left: when value is order_by it IS the left-tail CVaR. Used for

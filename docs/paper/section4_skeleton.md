@@ -28,8 +28,8 @@ Two conclusions, and the second corrects what we had assumed:
    the frontier has slope exactly -1. This is Theorem 1 shown numerically.
 2. **The PAP frontier is not curved — it is straight but tilted.** Departure from the
    chord is 0.03% of the joint gain, i.e. visually and numerically linear, but its slope
-   is about -0.986 rather than -1. One unit of generator surplus surrendered buys about
-   1.014 units of buyer surplus, so the joint gain rises 1.4% as power moves to the buyer
+   is about -1.017 (measured on the 303-point sweep) rather than -1. One unit of generator surplus surrendered buys about
+   1.017 units of buyer surplus, so the joint gain rises about 1.7% as power moves to the buyer
    and gamma* drifts by 0.6%.
 
    **Do not write "the PAP frontier is curved".** Write that the separation between
@@ -190,7 +190,7 @@ Paste into `sections/04_results/`. Every `%>` line is a note to the writer, to b
 \paragraph{Pay-as-produced.}
 %> Agreed terms at the base case: gamma* = 0.91, S* = 84.7 EUR/MWh. State it flatly.
 %> The frontier is still straight to within 0.03% of the joint gain, but its slope is
-%> about -0.986, not -1: the strike is not a pure transfer, so moving power to the buyer
+%> about -1.017 (measured on the 303-point sweep), not -1: the strike is not a pure transfer, so moving power to the buyer
 %> raises the joint gain by 1.4% and moves gamma* by 0.6%. The separation between
 %> creating and dividing value fails, and the failure is second-order.
 

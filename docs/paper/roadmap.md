@@ -87,7 +87,7 @@ gain is risk-adjusted through party-specific A_i and is not comparable across st
 - Baseload separates exactly: J = 28.0987 MEUR and M* = 12.6594 MW at every tau, to four
   decimals; the frontier has slope exactly -1.
 - The PAP frontier is **straight but tilted**, not curved: departure from the chord is
-  0.03% of the joint gain, but the slope is about -0.986, so the joint gain rises 1.4%
+  0.03% of the joint gain, but the slope is about -1.017 (measured on the 303-point sweep), so the joint gain rises 1.4%
   and gamma* drifts 0.6% as power moves to the buyer. Do not write "curved".
 - gamma* crosses 1 at a value ratio of 1.003, i.e. at consumption = CR_G/CR_L = 70% of
   production (predicted 0.7022, observed 0.7036). Nearly invariant to risk aversion:

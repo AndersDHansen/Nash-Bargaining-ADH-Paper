@@ -20,6 +20,9 @@ colour:
   price:     "#009e73"   # palette.green
   neutral:   "#4d4d4d"   # reference lines, caps, merchant baseline
 
+cmap:
+  sequential: "viridis"
+
 style:
   baseload: "-"
   pap: "--"

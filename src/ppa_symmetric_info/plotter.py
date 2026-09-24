@@ -62,7 +62,9 @@ class Plotter:
     def plot_all_figures(self) -> None:
         """Plot every figure in the paper."""
         log.info("Plotting all figures for the paper")
-        self.case_study_summary()
+        #self.case_study_summary()
+        self.bargaining_set()
+        self.risk_preferences()
 
     def case_study_summary(self):
         """Figure 1 - price, energy and capture-rate bands over the tenor."""
@@ -160,49 +162,65 @@ class Plotter:
         return fig
 
     def bargaining_set(self):
-        """The bargaining set, and what fixes the contracted quantity.
+        """The bargaining set, and what fixes the contracted quantity."""
+        fig, axs = plt.subplots(1, 2, figsize=(self.p.width.double, 2.0))
 
-        Panels: (a) bargaining set under baseload, (b) under pay-as-produced,
-        (c) contracted quantity against buyer size.
+        fig.tight_layout(pad=0.4)
+        fig.savefig(self.fig_dir / "bargaining_set.pdf", bbox_inches="tight")
+        log.info("wrote %s", self.fig_dir / "bargaining_set.pdf")
+        return fig
 
-        Panels (a) and (b) must be TRACED, not drawn as a line through two extreme
-        strikes: sweep tau_L and plot the attained (delta_G, delta_L). The baseload
-        frontier then has slope exactly -1 and the PAP one about -0.986, which is
-        the structural point of the whole section.
+    def risk_preferences(self):
+        """Figure 3 - strike (top) and joint gain (bottom) over the risk-aversion grid.
 
-        Needs: bargaining_power sweep for both experiments.
-        Panel (c) needs a sweep over load_scale, which has no config and no branch
-        in build_sensitivity_grid yet.
-
-        Message: baseload separates creating from dividing value exactly; PAP does
-        not, and the failure is second-order.
-        """
-        raise NotImplementedError("fig2_bargaining_set")
-
-    # ==================================================================
-    # Figure 3 -- Section 4.3
-    # ==================================================================
-    def fig3_risk_preferences(self):
-        """Negotiated strike and joint gain over the risk-aversion grid.
-
-        Heatmaps over (A_G, A_L) at tau_L = 0.5:
-        (a) strike, baseload      (b) strike, pay-as-produced
-        (c) joint gain, baseload  (d) joint gain, pay-as-produced
-
-        The contracted quantity is deliberately not a panel: over this grid it moves
-        by only 1.15x under baseload and 1.21x under PAP, so both panels would read
-        as flat. Those ranges go in the text, and the quantity gets Figure 2(c).
+        Columns are baseload and pay-as-produced. The contracted quantity is left out
+        on purpose: over this grid it moves by only x1.12 (baseload) and x1.22 (PAP),
+        so the panels would read as flat. Report those ranges in the text instead.
 
         Needs: risk_aversion sweep for both experiments.
-        Message: the strike responds strongly to risk preferences; the joint gain
-        rises with risk aversion on both sides and is exactly zero when both parties
-        are risk neutral. Mark that corner.
         """
-        raise NotImplementedError("fig3_risk_preferences")
+        exps = [("default_baseload", "Baseload"), ("default_pap", "Pay-as-produced")]
+        S = [self._get_grid("risk_aversion", e, "S_EUR_MWh") for e, _ in exps]
+        J = [
+            self._get_grid("risk_aversion", e, "delta_G")
+            + self._get_grid("risk_aversion", e, "delta_L")
+            for e, _ in exps
+        ]
+        vmax = max(j.to_numpy().max() for j in J)  # same scale in both: same units
 
-    # ==================================================================
-    # Figure 4 -- Section 4.4
-    # ==================================================================
+        fig, axs = plt.subplots(
+            2, 2, figsize=(self.p.width.double, 4.4), sharex=True, sharey=True
+        )
+
+        def heat(ax, g, **kw):
+            h = (g.index[1] - g.index[0]) / 2
+            ext = [g.columns[0] - h, g.columns[-1] + h, g.index[0] - h, g.index[-1] + h]
+            return ax.imshow(
+                g.to_numpy(), origin="lower", extent=ext, aspect="auto",
+                cmap=self.p.cmap.sequential, **kw,
+            )
+
+        # Strike: one colourbar per panel, since the two structures differ by ~30 EUR/MWh
+        for j, (ax, g) in enumerate(zip(axs[0], S)):
+            fig.colorbar(heat(ax, g), ax=ax).set_label("Strike [EUR/MWh]")
+            ax.set_title(exps[j][1])
+
+        # Joint gain: one shared colourbar, so the two structures are comparable
+        for ax, g in zip(axs[1], J):
+            im = heat(ax, g, vmin=0, vmax=vmax)
+            ax.plot(0, 0, "o", mfc="none", mec="white", ms=5)  # J = 0: no risk aversion
+        fig.colorbar(im, ax=axs[1], label="Joint gain [MEUR]")
+
+        for ax in axs[1]:
+            ax.set_xlabel("Buyer risk aversion $A_L$")
+        for ax in axs[:, 0]:
+            ax.set_ylabel("Generator risk aversion $A_G$")
+
+        fig.savefig(self.fig_dir / "risk_preferences.pdf", bbox_inches="tight")
+        log.info("wrote %s", self.fig_dir / "risk_preferences.pdf")
+        return fig
+
+
     def fig4_bargaining_power(self):
         """Effect of the buyer's bargaining power.
 
@@ -220,9 +238,7 @@ class Plotter:
         """
         raise NotImplementedError("fig4_bargaining_power")
 
-    # ==================================================================
-    # Figure 5 -- Section 4.5
-    # ==================================================================
+
     def fig5_earnings(self):
         """Contracted earnings, and who ends up carrying the risk.
 
@@ -241,9 +257,7 @@ class Plotter:
         """
         raise NotImplementedError("fig5_earnings")
 
-    # ==================================================================
-    # Figure 6 -- Section 4.6, only if the belief bias stays in the paper
-    # ==================================================================
+
     def fig6_price_beliefs(self):
         """Divergent price beliefs.
 
@@ -256,3 +270,13 @@ class Plotter:
         risk-transfer gain so the two are never read as additive.
         """
         raise NotImplementedError("fig6_price_beliefs")
+
+
+    def _get_grid(self, sens, exp, metric):
+        df = pd.read_csv(self.root/"results"/"sensitivity"/f"{exp}_{sens}"/f"grid_{metric}.csv", index_col=0)
+        df.columns = df.columns.astype(float)
+
+        df.columns = np.round(df.columns, decimals=3)
+                
+        df.index = np.round(df.index, decimals=3)
+        return df

@@ -2,6 +2,7 @@
 notes/*
 logs/*
 paper/*
+figures/*
 
 # Results: track top-level subfolders but not their contents
 results/single_run/*

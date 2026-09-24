@@ -1,7 +1,7 @@
 from .utils import get_logger
 from .data_ops import DataLoader, DataPreprocessor, DataPostprocessor, run_sensitivity
 from .model import ModelNashBargaining
-from .plotting import Plotter
+from .plotter import Plotter
 
 log = get_logger(__name__)
 
@@ -10,11 +10,11 @@ class Runner:
     """The workflow manager of the full modelling pipeline.
 
     Stages run in order:
-      1. preprocess_data   — generate and reduce Monte Carlo scenarios (skipped if cached)
-      2. load_data         — read scenario CSVs and config into a DataLoader
-      3. solve_nbs_model   — build and solve the Nash Bargaining model with Gurobi
-      4. postprocess_data  — extract and save results
-      5. visualize_results — produce plots
+        1. preprocess_data   — generate and reduce Monte Carlo scenarios (skipped if cached)
+        2. load_data         — read scenario CSVs and config into a DataLoader
+        3. solve_nbs_model   — build and solve the Nash Bargaining model with Gurobi
+        4. postprocess_data  — extract and save results
+        5. visualize_results — produce plots
 
     For sensitivity analysis, stages 2-4 are delegated to run_sensitivity().
     """
@@ -64,5 +64,5 @@ class Runner:
         DataPostprocessor(self.nbs_model).run()
 
     def plot_figures(self):
-        plotter = Plotter()
+        plotter = Plotter(self.config)
         plotter.plot_all_figures()

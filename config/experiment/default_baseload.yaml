@@ -54,4 +54,4 @@ gamma_max: 1.0
 
 # Multiplicative scale applied to the load's consumption after scenario loading.
 # 1.0 = as sampled from historical data. Use e.g. 0.5 to test load < production regimes.
-load_scale: 1.0
+load_scale: 0.4

@@ -1,0 +1,46 @@
+# @package plotting
+# Figure appearance. One place for colours, geometry and fonts so a change
+# propagates to every figure instead of being re-decided in each.
+
+# Okabe-Ito, colourblind-safe and legible in greyscale print.
+palette:
+  orange: "#e69f00"
+  cyan:   "#56b4e9"
+  green:  "#009e73"
+  yellow: "#f0e442"
+  blue:   "#0072b2"
+  red:    "#d55e00"
+  pink:   "#cc79a7"
+  grey:   "#4d4d4d"
+
+# Semantic roles. Colour means party, line style means settlement structure.
+colour:
+  generator: "#0072b2"   # palette.blue
+  buyer:     "#e69f00"   # palette.orange
+  price:     "#009e73"   # palette.green
+  neutral:   "#4d4d4d"   # reference lines, caps, merchant baseline
+
+style:
+  baseload: "-"
+  pap: "--"
+
+# Percentile bands. Outer and inner are shaded, centre is drawn as a line.
+bands:
+  outer: [5, 95]
+  inner: [25, 75]
+  centre: 50
+  alpha_outer: 0.15
+  alpha_inner: 0.35
+
+# Elsevier artwork widths, in inches: 90 / 140 / 190 mm.
+width:
+  single: 3.54
+  onehalf: 5.51
+  double: 7.48
+
+font:
+  family: ["Arial", "Liberation Sans", "DejaVu Sans"]
+  size: 7
+  panel_label: 8
+
+dpi: 300

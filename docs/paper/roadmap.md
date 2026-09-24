@@ -10,6 +10,31 @@ about incomplete information moves to a second release.
 
 ---
 
+## 0a. Status 2026-09-24: finish the paper as it stands
+
+Decision: finish the base paper at load_scale 0.4. A subsection on Buyer size (how the
+volume split and the earnings "funnel" appear when the preferred hedges diverge, as in
+Anders' load_scale 1.0 results) is a candidate for later, not now.
+
+Section 4 figures (all single column, in `Plotter`, each skips with the `uv run` command
+when its sweep is missing):
+
+| Sec | Figure (method) | Sweeps needed | State |
+| --- | --- | --- | --- |
+| 4.1 | `case_study_summary` | scenarios | done; parameter table not built |
+| 4.2 | `bargaining_set` (2 panels) | bargaining_power | basic version; design open (nested A_L?) |
+| 4.3 | `risk_preferences` -> baseload and PAP figures | risk_aversion | done, text drafted; r_G/r_L table to build |
+| 4.4 | `bargaining_power` (strike vs tau_L) | bargaining_power | done, text drafted |
+| 4.4 | `strike_vs_size` | contract_size, bargaining_power | done; rerun PAP at A_L [0, 0.5, 1] |
+| 4.5 | `earnings` (2x2) | risk_aversion | done; text to draft |
+| 4.6 | heterogeneous beliefs (if D1) | asymmetric_info, 21x21 configured | sweep not run, figure not built |
+
+Out of the base paper: KDE-overlap figure (release 2, as an acceptance-probability curve),
+joint-gain heatmap (replaced by the r-table), risk premium S - S0 (dropped), CVaR line
+plots, full-range bargaining-set view. Open: D1; A_L sets differ between the two 4.4
+figures ({0.25,0.5,0.75} vs {0,0.5,1}); risk grids 31x31 (BL) vs 11x11 (PAP); use
+"heterogeneous beliefs" for K and "private information" for unknown types.
+
 ## 0. Where we are  (status 2026-09-23, end of day)
 
 Done:

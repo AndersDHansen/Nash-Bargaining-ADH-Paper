@@ -71,6 +71,7 @@ class Plotter:
         self.risk_preferences()
         self.bargaining_power()
         self.strike_vs_size()
+        self.earnings()
 
     def case_study_summary(self):
         """Figure 1 - price, energy and capture-rate bands over the tenor."""
@@ -451,23 +452,89 @@ class Plotter:
         log.info("wrote %s", out)
         return fig
 
-    def fig5_earnings(self):
-        """Contracted earnings, and who ends up carrying the risk.
+    def earnings(self):
+        """Contracted earnings against A_L at A_G = 0.5, and who carries the risk.
 
-        Rows are generator and buyer, columns baseload and pay-as-produced. Each
-        panel shows the weighted mean with P10-P90 and P5-P95 bands against A_L at
-        A_G = self.a_g_slice, with the merchant baseline (earnings_nc_*) dotted.
-
-        Bands go through weighted_percentiles(..., axis=0): the earnings grids have
-        scenarios on the rows.
+        Rows Generator and Buyer (shared y per row), columns baseload and PAP.
+        Bands as in the case-study figure: weighted P5-P95, P25-P75 and median over
+        the 2000 scenarios. Dotted lines: merchant (no-contract) P5, median and P95,
+        which do not depend on A_L. Earnings are totals over the 20-year tenor.
+        This is the one place the structures are compared on levels: earnings are
+        euros against a common baseline, the joint gain is not.
 
         Needs: risk_aversion sweep for both experiments.
-        Message: baseload stabilises the buyer and widens the generator's
-        distribution; PAP does the opposite. This is the one place the two
-        structures may be compared on levels, because earnings are euros against a
-        common baseline while the joint gain is risk-adjusted per party.
         """
-        raise NotImplementedError("fig5_earnings")
+        exps = [("default_baseload", "Baseload"), ("default_pap", "Pay-as-produced")]
+        if not self._available("earnings", [(e, "risk_aversion") for e, _ in exps]):
+            return None
+        a_g = 0.5
+        c, bd = self.p.colour, self.p.bands
+        sg = self.cfg.scenario_gen
+        w = pd.read_csv(
+            self.root
+            / "data"
+            / "processed"
+            / f"scenarios_reduced_{sg.num_scenarios_reduced}"
+            / f"probabilities_scenarios_reduced_{sg.years}y_{sg.num_scenarios_reduced}s.csv"
+        )["Probability"].to_numpy()
+        w = w / w.sum()
+        qs = sorted((*bd.outer, *bd.inner, bd.centre))  # P5, P25, P50, P75, P95
+
+        def slice_pct(exp, key):
+            """Weighted percentiles per A_L at A_G = a_g; scenarios are the rows."""
+            df = pd.read_csv(
+                self.root
+                / "results"
+                / "sensitivity"
+                / f"{exp}_risk_aversion"
+                / f"{key}.csv",
+                header=[0, 1],
+                index_col=0,
+            )
+            ag = df.columns.get_level_values(0).astype(float)
+            al = df.columns.get_level_values(1).astype(float)
+            keep = np.isclose(ag, a_g)
+            return al[keep].to_numpy(), wpct(df.loc[:, keep].to_numpy().T, w, qs)
+
+        fig, axs = plt.subplots(
+            2,
+            2,
+            figsize=(self.p.width.single, 4.2),
+            sharex=True,
+            sharey="row",
+            layout="constrained",
+        )
+        for j, (exp, title) in enumerate(exps):
+            for i, (party, colour) in enumerate([("G", c.generator), ("L", c.buyer)]):
+                ax = axs[i, j]
+                x, q = slice_pct(exp, f"earnings_{party}")
+                ax.fill_between(
+                    x, q[:, 0], q[:, 4], color=colour, alpha=bd.alpha_outer, lw=0
+                )
+                ax.fill_between(
+                    x, q[:, 1], q[:, 3], color=colour, alpha=bd.alpha_inner, lw=0
+                )
+                ax.plot(x, q[:, 2], color=colour)
+                _, m = slice_pct(exp, f"earnings_nc_{party}")
+                for k in (0, 2, 4):  # merchant P5, median, P95
+                    ax.axhline(m[0, k], color=c.neutral, ls=":", lw=0.8)
+            axs[0, j].set_title(title)
+            axs[1, j].set_xlabel("Buyer risk aversion $A_L$")
+        axs[0, 0].set_ylabel("Generator earnings [MEUR]")
+        axs[1, 0].set_ylabel("Buyer earnings [MEUR]")
+
+        handles = [
+            Patch(facecolor="0.3", alpha=bd.alpha_outer, label="P5-P95"),
+            Patch(facecolor="0.3", alpha=bd.alpha_inner, label="P25-P75"),
+            Line2D([0], [0], color="0.3", label="Median"),
+            Line2D([0], [0], color=c.neutral, ls=":", label="Merchant P5/P50/P95"),
+        ]
+        fig.legend(handles=handles, loc="outside upper center", ncol=2, frameon=False)
+
+        out = self.fig_dir / "earnings.pdf"
+        fig.savefig(out, bbox_inches="tight")
+        log.info("wrote %s", out)
+        return fig
 
     def fig6_price_beliefs(self):
         """Divergent price beliefs.

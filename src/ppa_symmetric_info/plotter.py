@@ -66,9 +66,11 @@ class Plotter:
     def plot_all_figures(self) -> None:
         """Plot every figure in the paper."""
         log.info("Plotting all figures for the paper")
-        # self.case_study_summary()
+        self.case_study_summary()
         self.bargaining_set()
         self.risk_preferences()
+        self.bargaining_power()
+        self.strike_vs_size()
 
     def case_study_summary(self):
         """Figure 1 - price, energy and capture-rate bands over the tenor."""
@@ -76,6 +78,13 @@ class Plotter:
         n = self.cfg.scenario_gen.num_scenarios_reduced
         tag = f"reduced_{self.cfg.scenario_gen.years}y_{n}s"
         d = self.root / "data" / "processed" / f"scenarios_reduced_{n}"
+        if not (d / f"probabilities_scenarios_{tag}.csv").exists():
+            log.warning(
+                "case_study skipped: %s not found. Generate the scenarios with: "
+                "uv run main.py sensitivity=default",
+                d,
+            )
+            return None
 
         def read(key, scale=1.0):
             return pd.read_csv(d / f"{key}_scenarios_{tag}.csv", index_col=0) * scale
@@ -191,6 +200,10 @@ class Plotter:
             ("default_baseload", "baseload", "M_MWh_h", "Quantity $M^*$ [MW]"),
             ("default_pap", "pap", "gamma", r"Share $\gamma^*$ [-]"),
         ]
+        if not self._available(
+            "risk_preferences", [(e[0], "risk_aversion") for e in exps]
+        ):
+            return None
         cmap = LinearSegmentedColormap.from_list(
             "diverging", list(self.p.cmap.diverging)
         )
@@ -226,22 +239,161 @@ class Plotter:
             figs.append(fig)
         return figs
 
-    def fig4_bargaining_power(self):
-        """Effect of the buyer's bargaining power.
+    def bargaining_power(self):
+        """Strike against the Buyer's bargaining power tau_L.
 
-        Against tau_L, both structures on each panel: (a) negotiated strike,
-        (b) generator's share of the joint gain, (c) contracted quantity.
-
-        Panel (c) is a horizontal line for baseload. That is the result, not an
-        empty plot: keep it and say so in the caption.
+        One single-column panel: three A_L levels (colour) for both structures
+        (line style), A_G fixed by the sweep. The strike is linear in tau_L, from
+        the Buyer's reservation strike at tau_L = 0 to the Generator's at
+        tau_L = 1, so the lines fan out towards tau_L = 0: the value of bargaining
+        power grows with the Buyer's risk aversion. Quantity and joint gain do
+        not move with tau_L (baseload exactly, PAP within ~2%), and the
+        Generator's share of the gain is 1 - tau_L: say both in the text.
 
         Needs: bargaining_power sweep for both experiments.
-        Message: under baseload power decides only the price; under PAP it also,
-        marginally, decides the size of the deal. The three A_L curves converge at
-        tau_L = 1, where the buyer pays the generator's reservation strike, which
-        does not depend on A_L.
         """
-        raise NotImplementedError("fig4_bargaining_power")
+        exps = [("default_baseload", "Baseload"), ("default_pap", "Pay-as-produced")]
+        if not self._available(
+            "bargaining_power", [(e, "bargaining_power") for e, _ in exps]
+        ):
+            return None
+        fig, ax = plt.subplots(figsize=(self.p.width.single, 2.8))
+
+        for exp, _ in exps:
+            d = pd.read_csv(
+                self.root
+                / "results"
+                / "sensitivity"
+                / f"{exp}_bargaining_power"
+                / "results_combined.csv"
+            )
+            style = self.p.style.baseload if "baseload" in exp else self.p.style.pap
+            for (_, s), c in zip(d.groupby("A_L"), self.p.levels):
+                s = s.sort_values("tau_L")
+                ax.plot(s.tau_L, s.S_EUR_MWh, ls=style, color=c)
+
+        a_l = sorted(d.A_L.unique())
+        handles = [
+            Line2D([0], [0], color=c, label=f"$A_L$ = {v:.2f}")
+            for v, c in zip(a_l, self.p.levels)
+        ] + [
+            Line2D([0], [0], color=self.p.colour.neutral, ls=st, label=name)
+            for st, (_, name) in zip([self.p.style.baseload, self.p.style.pap], exps)
+        ]
+        # the empty band between the two structures holds the legend
+        ax.legend(handles=handles, ncol=2, loc="center")
+        ax.set_xlim(0, 1)
+        ax.set_xlabel(r"Buyer bargaining power $\tau_L$")
+        ax.set_ylabel("Strike $S^*$ [EUR/MWh]")
+
+        out = self.fig_dir / "bargaining_power.pdf"
+        fig.savefig(out, bbox_inches="tight")
+        log.info("wrote %s", out)
+        return fig
+
+    def strike_vs_size(self):
+        """Strike negotiated at a fixed contract size, for three bargaining powers.
+
+        Top baseload (x = M), bottom pay-as-produced (x = gamma), both at A_L of the
+        sweep. The tau_L = 0 and tau_L = 1 lines are the Buyer's and the Generator's
+        reservation strikes, so the shaded band between them is the range of
+        mutually acceptable prices at that size. It narrows with size; under
+        baseload it closes (no agreement, NaN rows, dropped), under PAP it is still
+        open at gamma = 1. Markers show the sweep grid. The dashed line is
+        the optimal size from the bargaining_power sweep at tau_L = 0.5. Colour is
+        tau_L, line style A_L; band and optimal size are drawn for the middle A_L.
+        The tau_L = 1 lines coincide for all A_L: a Buyer with full power pays the
+        Generator's reservation strike, which does not depend on A_L.
+
+        Needs: contract_size and bargaining_power sweeps for both experiments.
+        """
+        exps = [
+            ("default_baseload", "M_MWh_h", "Contract volume $M$ [MW]"),
+            ("default_pap", "gamma", r"Contract share $\gamma$ [-]"),
+        ]
+        sweeps = [
+            (e, s) for e, *_ in exps for s in ("contract_size", "bargaining_power")
+        ]
+        if not self._available("strike_vs_size", sweeps):
+            return None
+
+        def read(exp, sens):
+            return pd.read_csv(
+                self.root
+                / "results"
+                / "sensitivity"
+                / f"{exp}_{sens}"
+                / "results_combined.csv"
+            )
+
+        fig, axs = plt.subplots(
+            2, 1, figsize=(self.p.width.single, 4.6), layout="constrained"
+        )
+        styles = {}  # A_L -> line style, collected over both panels for the legend
+        for ax, (exp, q, xlabel) in zip(axs, exps):
+            # sizes past the point where the band closes have no agreement: NaN rows
+            d = read(exp, "contract_size").dropna(subset=[q, "S_EUR_MWh"])
+            taus, a_ls = sorted(d.tau_L.unique()), sorted(d.A_L.unique())
+            mid = a_ls[len(a_ls) // 2]  # band and optimal size shown for this A_L
+            style = dict(zip(a_ls, self.p.level_styles if len(a_ls) > 1 else ["-"]))
+            styles.update(style)
+            for (t, al), s in d.groupby(["tau_L", "A_L"]):
+                s = s.sort_values(q)
+                ax.plot(
+                    s[q], s.S_EUR_MWh, color=self.p.levels[taus.index(t)], ls=style[al]
+                )
+
+            # tau_L = 1 and tau_L = 0 bound the band of acceptable strikes
+            m = d[np.isclose(d.A_L, mid)]
+            lo = m[np.isclose(m.tau_L, max(taus))].sort_values(q)
+            hi = m[np.isclose(m.tau_L, min(taus))].sort_values(q)
+            ax.fill_between(
+                lo[q],
+                lo.S_EUR_MWh,
+                hi.S_EUR_MWh.to_numpy(),
+                color=self.p.levels[1],
+                alpha=0.12,
+                lw=0,
+            )
+
+            bp = read(exp, "bargaining_power")
+            opt = bp[np.isclose(bp.A_L, mid) & np.isclose(bp.tau_L, 0.5)][q].iloc[0]
+            ax.axvline(opt, color=self.p.colour.neutral, ls="--", lw=0.8)
+            ax.set_xlim(left=0)
+            ax.set_xlabel(xlabel)
+            ax.set_ylabel("Strike $S$ [EUR/MWh]")
+        axs[0].set_ylim(105, 135)
+        axs[0].set_yticks(range(105, 136, 5))
+        axs[1].set_ylim(70, 100)
+        axs[1].set_yticks(range(70, 101, 10))
+
+        # legend above the figure: row 1 = tau_L (colour), row 2 = A_L (line style)
+        tau_h = [
+            Line2D([0], [0], color=c, label=rf"$\tau_L$ = {t:.1f}")
+            for t, c in zip(taus, self.p.levels)
+        ]
+        al_h = [
+            Line2D(
+                [0],
+                [0],
+                color=self.p.colour.neutral,
+                ls=styles[a],
+                label=f"$A_L$ = {a:.2f}",
+            )
+            for a in sorted(styles)
+        ]
+        # a single A_L needs no line-style entry; otherwise interleave so that
+        # (legend fills by column) row 1 = tau_L and row 2 = A_L
+        if len(al_h) == len(tau_h):
+            handles = [h for pair in zip(tau_h, al_h) for h in pair]
+        else:
+            handles = tau_h
+        fig.legend(handles=handles, loc="outside upper center", ncol=3, frameon=False)
+
+        out = self.fig_dir / "strike_vs_size.pdf"
+        fig.savefig(out, bbox_inches="tight")
+        log.info("wrote %s", out)
+        return fig
 
     def fig5_earnings(self):
         """Contracted earnings, and who ends up carrying the risk.
@@ -273,6 +425,35 @@ class Plotter:
         risk-transfer gain so the two are never read as additive.
         """
         raise NotImplementedError("fig6_price_beliefs")
+
+    def _available(self, figure, sweeps):
+        """True if every (experiment, sweep) result exists; otherwise log how to make it.
+
+        results_combined.csv is written last by run_sensitivity, so its presence
+        means the sweep finished. Figures return None when this is False.
+        """
+        missing = [
+            (e, s)
+            for e, s in sweeps
+            if not (
+                self.root
+                / "results"
+                / "sensitivity"
+                / f"{e}_{s}"
+                / "results_combined.csv"
+            ).exists()
+        ]
+        for e, s in missing:
+            log.warning(
+                "%s skipped: results/sensitivity/%s_%s not found. Generate it with: "
+                "uv run main.py experiment=%s sensitivity=%s",
+                figure,
+                e,
+                s,
+                e,
+                s,
+            )
+        return not missing
 
     def _get_grid(self, sens, exp, metric):
         df = pd.read_csv(

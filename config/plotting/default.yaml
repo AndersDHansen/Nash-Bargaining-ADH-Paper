@@ -28,6 +28,12 @@ cmap:
               "#FBE4E4", "#EF8F8F", "#CC2929", "#8B1515"]
   masked: "#8C8A82"   # his NEUTRAL tick grey; must differ from the pale midpoint
 
+# Three ordered levels of one parameter (e.g. A_L = 0.25 / 0.50 / 0.75), light to dark.
+# Anders' COLORS_S from results/plotting_notebook.ipynb on branch new-figures.
+levels: ["#28AAAA", "#2878CC", "#1A5B81"]
+# Line styles for the same three levels when colour already encodes something else.
+level_styles: [":", "-", "--"]
+
 style:
   baseload: "-"
   pap: "--"

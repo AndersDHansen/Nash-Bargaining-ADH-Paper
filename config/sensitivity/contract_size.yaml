@@ -1,23 +1,23 @@
-# Sensitivity: sweep contract size with discrete A_L and tau_L combinations.
-# A_G is fixed at 0.5. Contract size is held fixed; only S is optimised.
-# Baseload (experiment=default_baseload): sweeps M_MW (generator_contract_capacity 0→30).
-# PAP     (experiment=default_pap):       sweeps gamma (0→1).
+# Sensitivity: strike negotiated at a FIXED contract size, for three bargaining powers.
+# Baseload fixes M, PAP fixes gamma. At each size the tau_L = 0 and tau_L = 1 strikes are
+# the Buyer's and the Generator's reservation strikes, so the band between them is the
+# range of mutually acceptable prices. On the load_scale 0.4 case it closes near 15 MW.
 type: contract_size
 
 M_MW:
-  start: 0.0
-  end: 30.0
-  n: 40
+  start: 0.5     # M = 0 is degenerate: no contract, strike undetermined
+  end: 16.0
+  n: 32
 
 gamma:
-  start: 0.0
+  start: 0.025
   end: 1.0
   n: 40
 
 A_G: 0.5
 
 A_L:
-  discrete: [0.25, 0.5, 0.75]
+  discrete: [0, 0.5, 1]
 
 tau_L:
   discrete: [0.0, 0.5, 1.0]

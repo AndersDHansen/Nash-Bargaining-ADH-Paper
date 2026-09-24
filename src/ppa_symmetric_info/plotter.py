@@ -1,15 +1,19 @@
+import logging
 from pathlib import Path
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from matplotlib.colors import LinearSegmentedColormap
 from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
 
 from .utils import get_logger
 
 log = get_logger(__name__)
+# PDF font subsetting logs every step at INFO under Hydra's root logger
+logging.getLogger("fontTools").setLevel(logging.WARNING)
 
 
 def wpct(a, w, qs):
@@ -62,7 +66,7 @@ class Plotter:
     def plot_all_figures(self) -> None:
         """Plot every figure in the paper."""
         log.info("Plotting all figures for the paper")
-        #self.case_study_summary()
+        # self.case_study_summary()
         self.bargaining_set()
         self.risk_preferences()
 
@@ -171,55 +175,56 @@ class Plotter:
         return fig
 
     def risk_preferences(self):
-        """Figure 3 - strike (top) and joint gain (bottom) over the risk-aversion grid.
+        """Figures 3 and 4 - strike (top) and contracted quantity (bottom) over the
+        risk grid, one single-column figure per structure.
 
-        Columns are baseload and pay-as-produced. The contracted quantity is left out
-        on purpose: over this grid it moves by only x1.12 (baseload) and x1.22 (PAP),
-        so the panels would read as flat. Report those ranges in the text instead.
+        One colourbar per panel: the structures differ by ~30 EUR/MWh and the
+        quantities have different units. The diverging map is not centred, so the
+        pale middle is the midpoint of each panel's own range; quantity moves only
+        x1.12 (M) and x1.22 (gamma), so state the ranges in the caption. The joint
+        gain is left out: it is additive, J = A_G*r_G + A_L*r_L, so r_G and r_L go
+        in a table instead.
 
         Needs: risk_aversion sweep for both experiments.
         """
-        exps = [("default_baseload", "Baseload"), ("default_pap", "Pay-as-produced")]
-        S = [self._get_grid("risk_aversion", e, "S_EUR_MWh") for e, _ in exps]
-        J = [
-            self._get_grid("risk_aversion", e, "delta_G")
-            + self._get_grid("risk_aversion", e, "delta_L")
-            for e, _ in exps
+        exps = [
+            ("default_baseload", "baseload", "M_MWh_h", "Quantity $M^*$ [MW]"),
+            ("default_pap", "pap", "gamma", r"Share $\gamma^*$ [-]"),
         ]
-        vmax = max(j.to_numpy().max() for j in J)  # same scale in both: same units
-
-        fig, axs = plt.subplots(
-            2, 2, figsize=(self.p.width.double, 4.4), sharex=True, sharey=True
+        cmap = LinearSegmentedColormap.from_list(
+            "diverging", list(self.p.cmap.diverging)
         )
+        cmap.set_bad(self.p.cmap.masked)
 
-        def heat(ax, g, **kw):
+        def heat(ax, g, label):
             h = (g.index[1] - g.index[0]) / 2
             ext = [g.columns[0] - h, g.columns[-1] + h, g.index[0] - h, g.index[-1] + h]
-            return ax.imshow(
-                g.to_numpy(), origin="lower", extent=ext, aspect="auto",
-                cmap=self.p.cmap.sequential, **kw,
+            im = ax.imshow(
+                g.to_numpy(), origin="lower", extent=ext, aspect="auto", cmap=cmap
             )
-
-        # Strike: one colourbar per panel, since the two structures differ by ~30 EUR/MWh
-        for j, (ax, g) in enumerate(zip(axs[0], S)):
-            fig.colorbar(heat(ax, g), ax=ax).set_label("Strike [EUR/MWh]")
-            ax.set_title(exps[j][1])
-
-        # Joint gain: one shared colourbar, so the two structures are comparable
-        for ax, g in zip(axs[1], J):
-            im = heat(ax, g, vmin=0, vmax=vmax)
-            ax.plot(0, 0, "o", mfc="none", mec="white", ms=5)  # J = 0: no risk aversion
-        fig.colorbar(im, ax=axs[1], label="Joint gain [MEUR]")
-
-        for ax in axs[1]:
-            ax.set_xlabel("Buyer risk aversion $A_L$")
-        for ax in axs[:, 0]:
+            fig.colorbar(im, ax=ax, label=label)
             ax.set_ylabel("Generator risk aversion $A_G$")
 
-        fig.savefig(self.fig_dir / "risk_preferences.pdf", bbox_inches="tight")
-        log.info("wrote %s", self.fig_dir / "risk_preferences.pdf")
-        return fig
+        figs = []
+        for exp, name, qkey, qlabel in exps:
+            S = self._get_grid("risk_aversion", exp, "S_EUR_MWh")
+            Q = self._get_grid("risk_aversion", exp, qkey)
+            Q.loc[0.0, 0.0] = (
+                np.nan
+            )  # J = 0 at the origin, so the quantity is arbitrary
 
+            fig, axs = plt.subplots(
+                2, 1, figsize=(self.p.width.single, 4.6), sharex=True
+            )
+            heat(axs[0], S, "Strike $S^*$ [EUR/MWh]")
+            heat(axs[1], Q, qlabel)
+            axs[1].set_xlabel("Buyer risk aversion $A_L$")
+
+            out = self.fig_dir / f"risk_preferences_{name}.pdf"
+            fig.savefig(out, bbox_inches="tight")
+            log.info("wrote %s", out)
+            figs.append(fig)
+        return figs
 
     def fig4_bargaining_power(self):
         """Effect of the buyer's bargaining power.
@@ -237,7 +242,6 @@ class Plotter:
         does not depend on A_L.
         """
         raise NotImplementedError("fig4_bargaining_power")
-
 
     def fig5_earnings(self):
         """Contracted earnings, and who ends up carrying the risk.
@@ -257,7 +261,6 @@ class Plotter:
         """
         raise NotImplementedError("fig5_earnings")
 
-
     def fig6_price_beliefs(self):
         """Divergent price beliefs.
 
@@ -271,12 +274,18 @@ class Plotter:
         """
         raise NotImplementedError("fig6_price_beliefs")
 
-
     def _get_grid(self, sens, exp, metric):
-        df = pd.read_csv(self.root/"results"/"sensitivity"/f"{exp}_{sens}"/f"grid_{metric}.csv", index_col=0)
+        df = pd.read_csv(
+            self.root
+            / "results"
+            / "sensitivity"
+            / f"{exp}_{sens}"
+            / f"grid_{metric}.csv",
+            index_col=0,
+        )
         df.columns = df.columns.astype(float)
 
         df.columns = np.round(df.columns, decimals=3)
-                
+
         df.index = np.round(df.index, decimals=3)
         return df

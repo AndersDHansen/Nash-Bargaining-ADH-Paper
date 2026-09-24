@@ -21,7 +21,12 @@ colour:
   neutral:   "#4d4d4d"   # reference lines, caps, merchant baseline
 
 cmap:
-  sequential: "viridis"
+  # Anders' soft_diverging (results/soft_style.py on branch new-figures), used for every
+  # heatmap in his notebook. Not centred: the pale middle is the midpoint of each
+  # panel's own range, so high and low values read at a glance.
+  diverging: ["#1540A8", "#2878CC", "#28AAAA", "#BCD8D6", "#EFEFED",
+              "#FBE4E4", "#EF8F8F", "#CC2929", "#8B1515"]
+  masked: "#8C8A82"   # his NEUTRAL tick grey; must differ from the pale midpoint
 
 style:
   baseload: "-"

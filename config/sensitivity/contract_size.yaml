@@ -7,12 +7,12 @@ type: contract_size
 M_MW:
   start: 0.5     # M = 0 is degenerate: no contract, strike undetermined
   end: 16.0
-  n: 32
+  n: 10
 
 gamma:
   start: 0.025
   end: 1.0
-  n: 40
+  n: 10
 
 A_G: 0.5
 

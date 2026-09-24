@@ -175,12 +175,64 @@ class Plotter:
         return fig
 
     def bargaining_set(self):
-        """The bargaining set, and what fixes the contracted quantity."""
-        fig, axs = plt.subplots(1, 2, figsize=(self.p.width.double, 2.0))
+        """Bargaining set in gain space, one single-column panel per structure.
 
-        fig.tight_layout(pad=0.4)
-        fig.savefig(self.fig_dir / "bargaining_set.pdf", bbox_inches="tight")
-        log.info("wrote %s", self.fig_dir / "bargaining_set.pdf")
+        Each tau_L of the bargaining_power sweep gives one Nash solution on the
+        Pareto frontier, so the (delta_G, delta_L) pairs trace the frontier. The
+        shaded area between it and the axes is the bargaining set, the origin is
+        the disagreement point, the star is the symmetric solution (tau_L = 0.5)
+        and the small markers show tau_L = 0, 0.25, ..., 1. Equal aspect, so the
+        slope (-1 baseload, -1.017 PAP) is drawn true. Uses the middle A_L.
+
+        Needs: bargaining_power sweep for both experiments.
+        """
+        exps = [("default_baseload", "Baseload"), ("default_pap", "Pay-as-produced")]
+        if not self._available(
+            "bargaining_set", [(e, "bargaining_power") for e, _ in exps]
+        ):
+            return None
+
+        fig, axs = plt.subplots(
+            2, 1, figsize=(self.p.width.single, 5.6), layout="constrained"
+        )
+        for ax, (exp, title) in zip(axs, exps):
+            d = pd.read_csv(
+                self.root
+                / "results"
+                / "sensitivity"
+                / f"{exp}_bargaining_power"
+                / "results_combined.csv"
+            )
+            a_l = sorted(d.A_L.unique())
+            f = d[np.isclose(d.A_L, a_l[len(a_l) // 2])].sort_values("delta_G")
+            dG, dL = f.delta_G.clip(lower=0), f.delta_L.clip(lower=0)
+
+            # bargaining set: origin, then along the frontier
+            ax.fill(
+                np.r_[0, dG, 0],
+                np.r_[0, dL, 0],
+                color=self.p.levels[1],
+                alpha=0.15,
+                lw=0,
+            )
+            ax.plot(dG, dL, color=self.p.levels[2])
+            ticks = f[np.isclose(f.tau_L % 0.25, 0) | np.isclose(f.tau_L % 0.25, 0.25)]
+            ax.plot(ticks.delta_G, ticks.delta_L, "o", color=self.p.levels[2], ms=2.5)
+            nash = f[np.isclose(f.tau_L, 0.5)]
+            ax.plot(nash.delta_G, nash.delta_L, "*", color=self.p.levels[2], ms=8)
+            ax.plot(0, 0, "o", color=self.p.colour.neutral, ms=4)
+
+            top = 1.08 * max(dG.max(), dL.max())
+            ax.set_xlim(-0.03 * top, top)
+            ax.set_ylim(-0.03 * top, top)
+            ax.set_aspect("equal")
+            ax.set_title(title)
+            ax.set_xlabel(r"Generator gain $\Delta_G$ [MEUR]")
+            ax.set_ylabel(r"Buyer gain $\Delta_L$ [MEUR]")
+
+        out = self.fig_dir / "bargaining_set.pdf"
+        fig.savefig(out, bbox_inches="tight")
+        log.info("wrote %s", out)
         return fig
 
     def risk_preferences(self):
@@ -296,12 +348,13 @@ class Plotter:
 
         Top baseload (x = M), bottom pay-as-produced (x = gamma), both at A_L of the
         sweep. The tau_L = 0 and tau_L = 1 lines are the Buyer's and the Generator's
-        reservation strikes, so the shaded band between them is the range of
+        reservation strikes, so the range between them is the range of
         mutually acceptable prices at that size. It narrows with size; under
         baseload it closes (no agreement, NaN rows, dropped), under PAP it is still
         open at gamma = 1. Markers show the sweep grid. The dashed line is
         the optimal size from the bargaining_power sweep at tau_L = 0.5. Colour is
-        tau_L, line style A_L; band and optimal size are drawn for the middle A_L.
+        tau_L, line style A_L, and the shading spans the A_L curves of each tau_L;
+        the optimal size is drawn for the middle A_L.
         The tau_L = 1 lines coincide for all A_L: a Buyer with full power pays the
         Generator's reservation strike, which does not depend on A_L.
 
@@ -334,7 +387,7 @@ class Plotter:
             # sizes past the point where the band closes have no agreement: NaN rows
             d = read(exp, "contract_size").dropna(subset=[q, "S_EUR_MWh"])
             taus, a_ls = sorted(d.tau_L.unique()), sorted(d.A_L.unique())
-            mid = a_ls[len(a_ls) // 2]  # band and optimal size shown for this A_L
+            mid = a_ls[len(a_ls) // 2]  # optimal size shown for this A_L
             style = dict(zip(a_ls, self.p.level_styles if len(a_ls) > 1 else ["-"]))
             styles.update(style)
             for (t, al), s in d.groupby(["tau_L", "A_L"]):
@@ -343,18 +396,14 @@ class Plotter:
                     s[q], s.S_EUR_MWh, color=self.p.levels[taus.index(t)], ls=style[al]
                 )
 
-            # tau_L = 1 and tau_L = 0 bound the band of acceptable strikes
-            m = d[np.isclose(d.A_L, mid)]
-            lo = m[np.isclose(m.tau_L, max(taus))].sort_values(q)
-            hi = m[np.isclose(m.tau_L, min(taus))].sort_values(q)
-            ax.fill_between(
-                lo[q],
-                lo.S_EUR_MWh,
-                hi.S_EUR_MWh.to_numpy(),
-                color=self.p.levels[1],
-                alpha=0.12,
-                lw=0,
-            )
+            # per tau_L, shade the spread across A_L (zero width at tau_L = 1)
+            for t, c in zip(taus, self.p.levels):
+                pv = d[np.isclose(d.tau_L, t)].pivot_table(
+                    index=q, columns="A_L", values="S_EUR_MWh"
+                )
+                ax.fill_between(
+                    pv.index, pv.min(axis=1), pv.max(axis=1), color=c, alpha=0.15, lw=0
+                )
 
             bp = read(exp, "bargaining_power")
             opt = bp[np.isclose(bp.A_L, mid) & np.isclose(bp.tau_L, 0.5)][q].iloc[0]
@@ -362,10 +411,10 @@ class Plotter:
             ax.set_xlim(left=0)
             ax.set_xlabel(xlabel)
             ax.set_ylabel("Strike $S$ [EUR/MWh]")
-        axs[0].set_ylim(105, 135)
-        axs[0].set_yticks(range(105, 136, 5))
-        axs[1].set_ylim(70, 100)
-        axs[1].set_yticks(range(70, 101, 10))
+        axs[0].set_ylim(100, 140)
+        axs[0].set_yticks(range(100, 141, 5))
+        axs[1].set_ylim(70, 110)
+        axs[1].set_yticks(range(70, 111, 10))
 
         # legend above the figure: row 1 = tau_L (colour), row 2 = A_L (line style)
         tau_h = [
@@ -382,13 +431,20 @@ class Plotter:
             )
             for a in sorted(styles)
         ]
-        # a single A_L needs no line-style entry; otherwise interleave so that
-        # (legend fills by column) row 1 = tau_L and row 2 = A_L
-        if len(al_h) == len(tau_h):
+        # legend fills by column: row 1 = tau_L, row 2 = A_L, padded with blanks
+        # when the counts differ; a single A_L needs no line-style row
+        if len(al_h) > 1:
+            n = max(len(tau_h), len(al_h))
+            blank = Line2D([], [], alpha=0, label=" ")
+            tau_h += [blank] * (n - len(tau_h))
+            al_h += [blank] * (n - len(al_h))
             handles = [h for pair in zip(tau_h, al_h) for h in pair]
         else:
             handles = tau_h
-        fig.legend(handles=handles, loc="outside upper center", ncol=3, frameon=False)
+        ncol = len(handles) // 2 if len(al_h) > 1 else len(handles)
+        fig.legend(
+            handles=handles, loc="outside upper center", ncol=ncol, frameon=False
+        )
 
         out = self.fig_dir / "strike_vs_size.pdf"
         fig.savefig(out, bbox_inches="tight")

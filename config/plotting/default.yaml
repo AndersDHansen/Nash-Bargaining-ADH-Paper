@@ -32,7 +32,7 @@ cmap:
 # Anders' COLORS_S from results/plotting_notebook.ipynb on branch new-figures.
 levels: ["#28AAAA", "#2878CC", "#1A5B81"]
 # Line styles for the same three levels when colour already encodes something else.
-level_styles: [":", "-", "--"]
+level_styles: [":", "--", "-"]   # low, medium, high
 
 style:
   baseload: "-"

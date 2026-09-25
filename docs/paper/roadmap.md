@@ -10,30 +10,38 @@ about incomplete information moves to a second release.
 
 ---
 
-## 0a. Status 2026-09-24: finish the paper as it stands
+## 0a. Status 2026-09-25: finish the paper as it stands
 
-Decision: finish the base paper at load_scale 0.4. A subsection on Buyer size (how the
-volume split and the earnings "funnel" appear when the preferred hedges diverge, as in
-Anders' load_scale 1.0 results) is a candidate for later, not now.
+Decision: finish the base paper at load_scale 0.4. A subsection on Buyer size (volume
+split and earnings "funnel", as in Anders' load_scale 1.0 results; load_scale 0.2 gives a
+similar spread with PAP gamma likely interior) is a candidate for later, not now.
+Handoff: `notes/session_handoff.md`. Drafts: `notes/section4_drafts.md` (both private).
 
-Section 4 figures (all single column, in `Plotter`, each skips with the `uv run` command
-when its sweep is missing):
+Section 4 figures (single column, 8 pt, in `Plotter`; each skips with the `uv run`
+command when its sweep is missing; include at natural size):
 
 | Sec | Figure (method) | Sweeps needed | State |
 | --- | --- | --- | --- |
-| 4.1 | `case_study_summary` | scenarios | done; parameter table not built |
-| 4.2 | `bargaining_set` (2 panels) | bargaining_power | basic version; design open (nested A_L?) |
-| 4.3 | `risk_preferences` -> baseload and PAP figures | risk_aversion | done, text drafted; r_G/r_L table to build |
-| 4.4 | `bargaining_power` (strike vs tau_L) | bargaining_power | done, text drafted |
-| 4.4 | `strike_vs_size` | contract_size, bargaining_power | done; rerun PAP at A_L [0, 0.5, 1] |
-| 4.5 | `earnings` (2x2) | risk_aversion | done; text to draft |
-| 4.6 | heterogeneous beliefs (if D1) | asymmetric_info, 21x21 configured | sweep not run, figure not built |
+| 4.1 | `case_study_summary` + parameter table | scenarios | figure done; text + table drafted |
+| 4.2 | `bargaining_set` | risk_aversion + scenarios | user rebuilding in Anders' notebook style |
+| 4.3 | `risk_preferences` -> baseload and PAP figures | risk_aversion | done, drafted |
+| 4.4 | `bargaining_power` (strike vs tau_L) | bargaining_power | done, drafted |
+| 4.4 | `strike_vs_size` | contract_size, bargaining_power | done, drafted |
+| 4.5 | `earnings` (2x2) | risk_aversion | done, drafted |
+| 4.6 | `price_beliefs` | asymmetric_info (21x21, run) | done, drafted (if D1) |
 
-Out of the base paper: KDE-overlap figure (release 2, as an acceptance-probability curve),
-joint-gain heatmap (replaced by the r-table), risk premium S - S0 (dropped), CVaR line
-plots, full-range bargaining-set view. Open: D1; A_L sets differ between the two 4.4
-figures ({0.25,0.5,0.75} vs {0,0.5,1}); risk grids 31x31 (BL) vs 11x11 (PAP); use
-"heterogeneous beliefs" for K and "private information" for unknown types.
+- [x] 4.1, 4.3, 4.4, 4.5, 4.6 drafted (notes/section4_drafts.md)
+- [ ] 4.2 figure (user) and text
+- [ ] D1 decision; optional true-price paragraph in 4.6
+- [ ] Align A_L sets in 4.4; PAP risk grid 31x31 (run in progress 2026-09-25)
+- [ ] Appendix F fixes (list at the end of the drafts file)
+- [ ] Section 5
+
+Out of the base paper: KDE-overlap figure (release 2, as an acceptance-probability
+curve), joint-gain heatmap (replaced by r_G/r_L in the 4.3 text), risk premium S - S0
+(dropped), CVaR line plots, full-range bargaining-set view. Terminology: "divergent
+(heterogeneous) price beliefs" for K, "private (incomplete) information" for unknown
+types; never "asymmetric information" for K.
 
 ## 0. Where we are  (status 2026-09-23, end of day)
 

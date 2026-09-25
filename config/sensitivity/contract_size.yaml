@@ -17,7 +17,7 @@ gamma:
 A_G: 0.5
 
 A_L:
-  discrete: [0, 0.5, 1]
+  discrete: [0.5, 1]   # the figure draws only these values
 
 tau_L:
   discrete: [0.0, 0.5, 1.0]

@@ -54,7 +54,7 @@ width:
 
 font:
   family: ["Arial", "Liberation Sans", "DejaVu Sans"]
-  size: 7
+  size: 8        # printed size: figures are drawn at their final width
   panel_label: 8
 
 dpi: 300

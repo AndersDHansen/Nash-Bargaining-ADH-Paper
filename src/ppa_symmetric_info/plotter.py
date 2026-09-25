@@ -5,6 +5,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from omegaconf import OmegaConf
 from matplotlib.colors import LinearSegmentedColormap
 from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
@@ -58,6 +59,7 @@ class Plotter:
                 "ytick.major.width": 0.6,
                 "lines.linewidth": 1.0,
                 "savefig.dpi": self.p.dpi,
+                "savefig.pad_inches": 0.02,  # tight crop without the 0.1 in default margin
                 "pdf.fonttype": 42,  # TrueType, not Type 3: required by most journals
                 "ps.fonttype": 42,
             }
@@ -72,6 +74,7 @@ class Plotter:
         self.bargaining_power()
         self.strike_vs_size()
         self.earnings()
+        self.price_beliefs()
 
     def case_study_summary(self):
         """Figure 1 - price, energy and capture-rate bands over the tenor."""
@@ -310,7 +313,7 @@ class Plotter:
             "bargaining_power", [(e, "bargaining_power") for e, _ in exps]
         ):
             return None
-        fig, ax = plt.subplots(figsize=(self.p.width.single, 2.8))
+        fig, ax = plt.subplots(figsize=(self.p.width.single, 3.0), layout="constrained")
 
         for exp, _ in exps:
             d = pd.read_csv(
@@ -326,15 +329,24 @@ class Plotter:
                 ax.plot(s.tau_L, s.S_EUR_MWh, ls=style, color=c)
 
         a_l = sorted(d.A_L.unique())
-        handles = [
+        levels = [
             Line2D([0], [0], color=c, label=f"$A_L$ = {v:.2f}")
             for v, c in zip(a_l, self.p.levels)
-        ] + [
+        ]
+        structures = [
             Line2D([0], [0], color=self.p.colour.neutral, ls=st, label=name)
             for st, (_, name) in zip([self.p.style.baseload, self.p.style.pap], exps)
         ]
-        # the empty band between the two structures holds the legend
-        ax.legend(handles=handles, ncol=2, loc="center")
+        # legend above the plot, filled by column: row 1 = A_L, row 2 = structure
+        handles = [levels[0], structures[0], levels[1], structures[1], levels[2]]
+        fig.legend(
+            handles=handles,
+            loc="outside upper center",
+            ncol=3,
+            frameon=False,
+            handlelength=1.5,
+            columnspacing=1.0,  # fits the column at 9 pt
+        )
         ax.set_xlim(0, 1)
         ax.set_xlabel(r"Buyer bargaining power $\tau_L$")
         ax.set_ylabel("Strike $S^*$ [EUR/MWh]")
@@ -355,7 +367,8 @@ class Plotter:
         open at gamma = 1. Markers show the sweep grid. The dashed line is
         the optimal size from the bargaining_power sweep at tau_L = 0.5. Colour is
         tau_L, line style A_L, and the shading spans the A_L curves of each tau_L;
-        the optimal size is drawn for the middle A_L.
+        the optimal size is drawn for the base-case A_L
+        (experiment config).
         The tau_L = 1 lines coincide for all A_L: a Buyer with full power pays the
         Generator's reservation strike, which does not depend on A_L.
 
@@ -383,13 +396,19 @@ class Plotter:
         fig, axs = plt.subplots(
             2, 1, figsize=(self.p.width.single, 4.6), layout="constrained"
         )
+        # only the A_L values currently listed in the sweep config are drawn
+        shown = list(
+            OmegaConf.load(
+                self.root / "config" / "sensitivity" / "contract_size.yaml"
+            ).A_L.discrete
+        )
         styles = {}  # A_L -> line style, collected over both panels for the legend
         for ax, (exp, q, xlabel) in zip(axs, exps):
             # sizes past the point where the band closes have no agreement: NaN rows
             d = read(exp, "contract_size").dropna(subset=[q, "S_EUR_MWh"])
+            d = d[np.isclose(d.A_L.to_numpy()[:, None], shown).any(axis=1)]
             taus, a_ls = sorted(d.tau_L.unique()), sorted(d.A_L.unique())
-            mid = a_ls[len(a_ls) // 2]  # optimal size shown for this A_L
-            style = dict(zip(a_ls, self.p.level_styles if len(a_ls) > 1 else ["-"]))
+            style = dict(zip(a_ls, list(self.p.level_styles)[-len(a_ls) :]))
             styles.update(style)
             for (t, al), s in d.groupby(["tau_L", "A_L"]):
                 s = s.sort_values(q)
@@ -407,7 +426,10 @@ class Plotter:
                 )
 
             bp = read(exp, "bargaining_power")
-            opt = bp[np.isclose(bp.A_L, mid) & np.isclose(bp.tau_L, 0.5)][q].iloc[0]
+            opt = bp[
+                np.isclose(bp.A_L, float(self.cfg.experiment.A_L))
+                & np.isclose(bp.tau_L, 0.5)
+            ][q].iloc[0]
             ax.axvline(opt, color=self.p.colour.neutral, ls="--", lw=0.8)
             ax.set_xlim(left=0)
             ax.set_xlabel(xlabel)
@@ -536,18 +558,75 @@ class Plotter:
         log.info("wrote %s", out)
         return fig
 
-    def fig6_price_beliefs(self):
-        """Divergent price beliefs.
+    def price_beliefs(self):
+        """Heterogeneous price beliefs: joint gain and contract size against the gap.
 
-        Panels: (a) the region of the belief plane where an agreement exists,
-        (b) the joint gain against the belief gap K_G - K_L.
+        The belief gap is K_L - K_G (Buyer's minus Generator's shift of the expected
+        price, as a fraction of it). The joint gain depends almost only on the gap, so
+        each line is the mean over all (K_G, K_L) pairs with that gap and the band
+        spans their min and max. Bottom: size as a fraction of its cap (M / 30 MW,
+        gamma / 1). Below a gap of about -0.2 no contract is signed; above zero the
+        contract becomes a bet both sides expect to win, and the gain is perceived,
+        not realised. Gaps limited to [-0.5, 0.5], where every gap has >= 11 pairs.
 
-        Needs: asymmetric_info sweep for the PAP experiment.
-        Message: only the gap matters, not the level, and the gain a gap creates is
-        speculative rather than hedging value. Keep it visually separate from the
-        risk-transfer gain so the two are never read as additive.
+        Needs: asymmetric_info sweep for both experiments.
         """
-        raise NotImplementedError("fig6_price_beliefs")
+        exps = [
+            ("default_baseload", "Baseload", "M_MWh_h", 30.0),
+            ("default_pap", "Pay-as-produced", "gamma", 1.0),
+        ]
+        if not self._available(
+            "price_beliefs", [(e, "asymmetric_info") for e, *_ in exps]
+        ):
+            return None
+
+        fig, axs = plt.subplots(
+            2, 1, figsize=(self.p.width.single, 4.2), sharex=True, layout="constrained"
+        )
+        colour = self.p.levels[2]
+        for exp, name, q, cap in exps:
+            d = pd.read_csv(
+                self.root
+                / "results"
+                / "sensitivity"
+                / f"{exp}_asymmetric_info"
+                / "results_combined.csv"
+            )
+            d["J"] = d.delta_G + d.delta_L
+            d["size"] = d[q] / cap
+            d["gap"] = (d.K_L_price - d.K_G_price).round(3)
+            d = d[d.gap.abs() <= 0.5 + 1e-9]
+            g = d.groupby("gap")
+            style = self.p.style.baseload if "baseload" in exp else self.p.style.pap
+            for ax, col in zip(axs, ("J", "size")):
+                ax.fill_between(
+                    g[col].min().index,
+                    g[col].min(),
+                    g[col].max(),
+                    color=colour,
+                    alpha=0.15,
+                    lw=0,
+                )
+                ax.plot(g[col].mean(), color=colour, ls=style, label=name)
+
+        for ax in axs:
+            ax.axvline(0, color=self.p.colour.neutral, lw=0.5)  # common beliefs
+        axs[0].set_ylabel("Joint gain [MEUR]")
+        axs[1].set_ylabel("Contract size / maximum [-]")
+        axs[1].set_ylim(0, 1.05)
+        axs[1].set_xlim(-0.5, 0.5)
+        axs[1].set_xlabel(r"Belief gap $K_L - K_G$ [-]")
+        fig.legend(
+            *axs[0].get_legend_handles_labels(),
+            loc="outside upper center",
+            ncol=2,
+            frameon=False,
+        )
+
+        out = self.fig_dir / "price_beliefs.pdf"
+        fig.savefig(out, bbox_inches="tight")
+        log.info("wrote %s", out)
+        return fig
 
     def _available(self, figure, sweeps):
         """True if every (experiment, sweep) result exists; otherwise log how to make it.

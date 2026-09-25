@@ -14,7 +14,7 @@ def main(cfg: DictConfig):
     runner = Runner(cfg)
 
     # Run selected configuration
-    runner.run()
+    #runner.run()
     log.info("Run completed, good job champ :)")
 
     # Plot figures

@@ -51,61 +51,29 @@ uv run python main.py experiment.A_G=0.7 experiment.A_L=0.3 experiment.tau_L=0.3
 uv run python main.py sensitivity=risk_aversion
 ```
 
-The first run generates and reduces the Monte Carlo scenarios, which takes a few
-minutes; afterwards they are cached in `data/processed/` and reused. Delete that
-folder to force regeneration.
+## Folder structure
 
-A single run writes to `results/single_run/{sim_name}/`, a sweep to
-`results/sensitivity/{sim_name}_{sweep}/`.
-
-Figures are built from those results, not from a fresh solve:
-
-```bash
-uv run python -c "from ppa_symmetric_info.plotting import Plotter; Plotter().plot_all_figures()"
+```text
+Nash-Bargaining-ADH-Paper/
+├── config/
+│   ├── config.yaml                      # Top-level Hydra composition
+│   ├── experiment/                      # default_baseload.yaml, default_pap.yaml
+│   ├── paths/                           # default.yaml
+│   ├── scenario_gen/                    # default.yaml, 100/2000/5000 presets
+│   └── sensitivity/                     # default, risk_aversion, bargaining_power, ...
+├── data/                                # Raw input data (not tracked by git)
+├── docs/                                # MkDocs documentation
+├── results/
+│   ├── single_run/{sim_name}/           # Base case outputs
+│   └── sensitivity/{sim_name}_{type}/  # Sensitivity sweep outputs
+├── src/
+│   └── ppa_symmetric_info/
+│       ├── data_ops/                    # DataLoader, DataPreprocessor, DataPostprocessor
+│       ├── model.py                     # Gurobi model
+│       ├── runner.py                    # Pipeline orchestration
+│       └── utils.py
+├── Code/                                # Legacy code (reference only)
+├── main.py
+├── pyproject.toml
+└── uv.lock
 ```
-
-Each figure is one method on `Plotter`. A figure whose sweep has not been run is
-skipped with the command that produces it, so a stale plot is never written.
-
-## Layout
-
-```
-main.py                       Hydra entry point
-config/
-  config.yaml                 composition defaults
-  experiment/                 contract type and model parameters
-  scenario_gen/               Monte Carlo and reduction settings
-  sensitivity/                sweep definitions
-  paths/                      filesystem layout
-src/ppa_symmetric_info/
-  runner.py                   pipeline: preprocess, load, solve, postprocess
-  model.py                    Gurobi model of the bargaining problem
-  data_ops/                   scenario generation, reduction, loading, sweeps
-  analysis/                   closed-form solver used to verify the optimiser
-  plotting/                   paper figures (Plotter) and their shared style
-data/raw/                     wind, price and consumption inputs
-data/processed/               generated scenarios (git-ignored)
-results/                      solver output (git-ignored)
-figures/                      generated figures
-docs/                         documentation source (mkdocs)
-```
-
-`analysis/` solves the same problem in closed form without Gurobi. It is verified
-against the solver to 1e-6 and is the fastest way to reproduce the contracted-quantity
-results.
-
-## Documentation
-
-`docs/source/` covers the model, every configuration key and the output schema:
-
-```bash
-uv run mkdocs serve -f docs/mkdocs.yaml
-```
-
-| Page | Contents |
-| --- | --- |
-| `index.md` | What the model does and the objective it solves |
-| `installation.md` | Setup with uv or conda |
-| `quickstart.md` | Running the pipeline and approximate run times |
-| `model.md` | Mathematical formulation |
-| `configuration.md` | Every config key, and what moves the contracted quantity |

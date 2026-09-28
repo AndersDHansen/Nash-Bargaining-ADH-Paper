@@ -1,46 +1,54 @@
-# Nash Bargaining for Power Purchase Agreements
+# Nash Bargaining for Renewable PPAs
 
-Optimization model for PPA contract negotiation between a renewable energy generator and a corporate load. The model finds the contract terms (strike price and volume) that maximize the asymmetric Nash product of both parties' utilities, where utility combines expected earnings and CVaR risk aversion.
+A Nash bargaining model for Power Purchase Agreements between a renewable generator
+and a corporate buyer. Given Monte Carlo scenarios of prices, production and
+consumption, it solves for the strike price and the contracted quantity that a
+bargaining solution produces when both parties are risk averse.
 
-Full documentation: run `mkdocs serve -f docs/mkdocs.yaml` and open `http://localhost:8000`.
+Both parties value a contract with a mean-CVaR utility,
+`u_i = (1 - A_i) E[pi_i] + A_i CVaR_alpha(pi_i)`, and the terms maximise the weighted
+Nash product of their gains over the merchant position, so bargaining power enters
+explicitly through the weights.
 
-## Prerequisites
+Two settlement structures are supported:
+
+| Structure | Contracted quantity | Decision variables |
+| --- | --- | --- |
+| Baseload | Fixed volume `M` each period | `S`, `M` |
+| Pay-as-produced | Share `gamma` of realised production | `S`, `gamma` |
+
+## Requirements
 
 - Python 3.13+
-- Gurobi with a valid license ([academic licenses](https://www.gurobi.com/academia/academic-program-and-licenses/) are free)
-- [uv](https://github.com/astral-sh/uv) (recommended) or conda
+- [uv](https://github.com/astral-sh/uv)
+- Gurobi with a valid license; academic licenses are free from
+  [gurobi.com/academia](https://www.gurobi.com/academia/academic-program-and-licenses/)
 
-## Installation
+## Setup
 
 ```bash
-git clone https://github.com/<your-username>/Nash-Bargaining-ADH-Paper.git
+git clone https://github.com/AndersDHansen/Nash-Bargaining-ADH-Paper.git
 cd Nash-Bargaining-ADH-Paper
 uv sync
 ```
 
-With conda:
+## Running
+
+Configuration is composed by [Hydra](https://hydra.cc) from the groups in `config/`.
+Any value can be overridden on the command line.
 
 ```bash
-conda env create -f envs/environment.yaml
-conda activate nash-bargaining
-pip install -e .
-```
+# base case, pay-as-produced
+uv run python main.py
 
-## Usage
+# baseload instead
+uv run python main.py experiment=default_baseload
 
-```bash
-# Base case (PAP contract, default config)
-python main.py
+# override parameters
+uv run python main.py experiment.A_G=0.7 experiment.A_L=0.3 experiment.tau_L=0.3
 
-# Switch to baseload contract
-python main.py experiment=default_baseload
-
-# Override parameters from the command line
-python main.py experiment.A_L=0.3 experiment.A_G=0.7
-
-# Run a sensitivity analysis
-python main.py run_sensitivity=true sensitivity=risk_aversion
-python main.py run_sensitivity=true sensitivity=bargaining_power
+# a sensitivity sweep
+uv run python main.py sensitivity=risk_aversion
 ```
 
 ## Folder structure

@@ -1,0 +1,17 @@
+# Sensitivity: Monte-Carlo over load risk aversion A_L at fixed A_G.
+# Draws A_L ~ N(mean, std) clipped to [clip], re-solves the Nash model per draw, and
+# records the distribution of S*, SR*, SU* (reservation strikes) and contract volume.
+# Baseload runs twice over the SAME draws: variable M, then M pinned to the mean optimal
+# M (M-bar). PAP is single-pass (gamma is always optimised).
+type: load_risk_aversion
+
+A_G: 0.5
+tau_L: 0.5
+
+A_L:
+  mean: 0.3
+  std: 0.1
+  clip: [0.0, 1.0]
+
+n_samples: 500
+seed: 42

@@ -1,7 +1,9 @@
 # General
-stuff/*
+notes/*
 logs/*
 paper/*
+figures/*
+docs/*
 
 # Results: track top-level subfolders but not their contents
 results/single_run/*
@@ -41,5 +43,6 @@ venv/
 
 # Generated outputs
 Code/Plots/*.png
+.png
 Code/Results/
 

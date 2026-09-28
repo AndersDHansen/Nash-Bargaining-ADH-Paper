@@ -6,7 +6,6 @@ logs: "${paths.root}/logs"
 raw:
   dir:         "${paths.root}/data/raw"
   wind:        "${paths.raw.dir}/Wind/combined_wind_data.csv"
-  solar:       "${paths.raw.dir}/Solar/combined_solar_data.csv"
   price:       "${paths.raw.dir}/EnergyReport.csv"
   consumption: "${paths.raw.dir}/ConsumptionIndustry.csv"
 

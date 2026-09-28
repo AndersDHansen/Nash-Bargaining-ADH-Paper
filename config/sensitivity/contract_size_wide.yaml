@@ -1,0 +1,25 @@
+# contract_size with baseload volumes up to the 30 MW plant cap, for the large-Buyer case (load_scale 1.0),
+# whose barter set extends to ~25 MW (A_L 0.5) and ~28.5 MW (A_L 1). Same sweep type, so results land in <sim_name>_contract_size.
+# Sensitivity: strike negotiated at a FIXED contract size, for three bargaining powers.
+# Baseload fixes M, PAP fixes gamma. At each size the tau_L = 0 and tau_L = 1 strikes are
+# the Buyer's and the Generator's reservation strikes, so the band between them is the
+# range of mutually acceptable prices. On the load_scale 0.4 case it closes near 15 MW.
+type: contract_size
+
+M_MW:
+  start: 0.5     # M = 0 is degenerate: no contract, strike undetermined
+  end: 30.0
+  n: 13
+
+gamma:
+  start: 0.025
+  end: 1.0
+  n: 10
+
+A_G: 0.5
+
+A_L:
+  discrete: [0.5, 1]   # the figure draws only these values
+
+tau_L:
+  discrete: [0.0, 0.5, 1.0]

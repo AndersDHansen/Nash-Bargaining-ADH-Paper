@@ -1,9 +1,11 @@
+# Large-Buyer case: identical to default_baseload except load_scale = 1.0 (Anders' Buyer size).
+# Results go to results/sensitivity/baseload_loadscale_1_<sweep>; the 0.4 results are untouched.
 # Baseload contract — single base-case run.
 # This file is the complete specification for one simulation:
 # contract settings, model parameters, and output routing in one place.
 
 # Simulation label
-sim_name: default_baseload
+sim_name: baseload_loadscale_1
 
 # Contract
 contract_type: baseload
@@ -54,4 +56,4 @@ gamma_max: 1.0
 
 # Multiplicative scale applied to the load's consumption after scenario loading.
 # 1.0 = as sampled from historical data. Use e.g. 0.5 to test load < production regimes.
-load_scale: 0.4
+load_scale: 1.0

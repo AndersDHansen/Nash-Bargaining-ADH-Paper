@@ -40,10 +40,10 @@ python main.py experiment.discount=true
 
 ```bash
 # Risk aversion sweep (A_G x A_L grid)
-python main.py run_sensitivity=true sensitivity=risk_aversion
+python main.py sensitivity=risk_aversion
 
 # Bargaining power sweep (tau_L from 0 to 1)
-python main.py run_sensitivity=true sensitivity=bargaining_power
+python main.py sensitivity=bargaining_power
 ```
 
 Results land in `results/sensitivity/{sim_name}_{sensitivity_type}/results_combined.csv`.

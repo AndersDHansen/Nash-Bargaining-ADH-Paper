@@ -10,6 +10,80 @@ about incomplete information moves to a second release.
 
 ---
 
+## 0b. Status 2026-09-28: Buyer size, manuscript review, Lesia's revisions next
+
+**Supersedes the load_scale decision in 0a.** Lesia objected that our baseload volume
+heatmap (load_scale 0.4) reverses Anders' trend. Diagnosis (verified 2026-09-25/27):
+
+- Plots are correct (grid rows = A_G, cols = A_L on both branches); results are correct
+  (1-D reconstruction matches both solvers to 0.02 MW; PAP brute force matches exactly).
+- Cause = Buyer size, not the capture-rate fix and not load stochasticity. Making the load
+  and its capture rate deterministic moves the Buyer's preferred volume by < 1%
+  (consumption CV 0.8% vs price 8.5% over 20 years).
+- Mechanism: baseload M* is a risk-weighted compromise between two **preferred volumes**
+  (each party's optimum when only it is risk averse), each ~ its value-weighted volume
+  (CR x mean volume). Generator 7.82 MW (fixed); Buyer grows linearly with its size.
+- **Value ratio** VR = E[sum CR_L lam P_L] / E[sum CR_G lam P_G] = 2.1108 x load_scale.
+  One threshold (VR ~ 1) flips the baseload trend AND caps the PAP share:
+  1. VR < 1 (small Buyer, ls 0.4, VR 0.84): risk-averse Buyer shrinks M; M nearly flat
+     (7.0-7.8 MW); PAP gamma interior (0.82-1.0). Our old results.
+  2. VR ~ 1 (ls 0.474): preferred volumes coincide; risk sets price, not size; PAP gamma
+     reaches 1 (0.989 at VR 1, 1.000 at ls 0.5).
+  3. VR > 1 (large Buyer, ls 1.0, VR 2.11, Anders' size): intuitive trend, M 7.8-17.4 MW;
+     PAP gamma = 1 at every risk preference; only the strike is negotiated.
+  Consumption = production in MWh at ls 0.68, but the balance in value is at ls 0.47,
+  because one MWh of wind hedges only ~0.7 MWh of consumption (CR_G 0.72 vs CR_L 1.03).
+- At ls 1.0 the baseload joint gain DEcreases with A_G in part of the grid (25/90 steps
+  on 10x10): the contract is sized for the Buyer, so the Generator is over-hedged.
+  "Risk aversion enlarges the gains" (C4, abstract) holds only for the Buyer there.
+- Side observation, not yet agreed as a claim: PAP gives a slightly larger joint gain for
+  small Buyers (ls <= 0.6), baseload for large ones (ls >= 0.8); differences <= ~5%.
+
+Proposal sent to Lesia: base case = large Buyer (ls 1.0), plus a Buyer-size subsection with
+one figure (baseload M* with the two preferred volumes, PAP gamma*, vs value ratio; the
+three regimes marked). Awaiting her revisions. "Preferred volume" and "value ratio" still
+need final agreement before entering the paper.
+
+**Baseload needs no solver for M (keep for Section 3.3 and as a check).** The strike is a
+pure transfer, so the joint gain Delta(M) = A_G R_G(M) + A_L R_L(M), R_i = CVaR_i - E_i
+(measured from M = 0), does not depend on S or tau: M* = argmax Delta (1-D search;
+Lemma C2 / Theorem DE_main in Appendices D-E). The NBS then sets the price:
+S* = S_Gen + (1 - tau_L)(S_Buyer - S_Gen), where S_Gen, S_Buyer are the reservation
+strikes at M*. Verified: ls 0.4 window 109.82-126.84 EUR/MWh; tau 0/0.5/1 -> 126.84 /
+118.33 / 109.82 vs solver 126.85 / 118.33 / 109.81. This is why the strike is linear in
+tau. PAP does not separate (strike multiplies stochastic output) and needs the full model.
+Script: notes/analysis/baseload_volume_1d.py.
+
+**Runs available (all verified).**
+- load_scale 1.0: `baseload_loadscale_1`, `pap_loadscale_1` x {risk_aversion (BL 10x10,
+  PAP 16x16), bargaining_power, contract_size (BL via contract_size_wide, 0.5-30 MW),
+  asymmetric_info 21x21}. The 4 NaN cells in BL asymmetric_info and the 9 in BL
+  contract_size are no-deal cells.
+- Buyer size: `results/single_run/buyer_size_{baseload,pap,baseload_genpref,
+  baseload_buyerpref}_{0p2,...,1p2}` (10 load scales incl. 0.474 = VR 1; genpref A_L = 0,
+  buyerpref A_G = 0).
+- Configs added: `config/experiment/{baseload,pap}_loadscale_1.yaml`,
+  `config/sensitivity/contract_size_wide.yaml`; `risk_aversion.yaml` now n = 10.
+- Plotter still hard-codes `default_baseload` / `default_pap` (lines 193, 256-257, 311,
+  378-379, 489, 575-576); needs the new names, plus a `buyer_size` method (user builds).
+
+**Manuscript review 2026-09-25 (full list given in chat; fixes drafted for Sec 1-3).**
+- 45 pages in EJOR format (11 pt, 1.5 spacing; limit 30): appendices to online
+  supplement, main text to trim ~6 pp (merge 3.3/3.4, cut App C to 0.5 pp, App A, repeated
+  utility equations in Sec 2, lit-review class 1).
+- Blunders: convexity (z = xS lifting makes the NBS a concave program; paper says
+  non-convex); 3.2 says PAP gamma* = 1 and "curved" frontier; abstract/C4 "compresses the
+  barter set"; bankability vs merchant disagreement point; main Theorem 1 differs from the
+  appendix theorem; months vs years; units of M; C3 "U is not convex" unverified;
+  "bargaining set" is the wrong term (use barter set); tau endpoints; Kalai citation wrong
+  in 1.3 (ProportionalComparisons -> Kalai1977Nonsymmetric); Figure 6 caption says three
+  A_L but draws two.
+- Section 1 edits applied by the user in part (C4, coupling sentence); remaining drafts
+  are in the chat history of 2026-09-25/28.
+
+Next: Lesia's revisions -> sharpen the Section 1 storyline; rework Section 4 around the
+large-Buyer base case with the Buyer-size subsection; decide D1 (4.6).
+
 ## 0a. Status 2026-09-25: finish the paper as it stands
 
 Decision: finish the base paper at load_scale 0.4. A subsection on Buyer size (volume

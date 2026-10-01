@@ -69,6 +69,7 @@ class Plotter:
         """Plot every figure in the paper."""
         log.info("Plotting all figures for the paper")
         self.case_study_summary()
+        self.toy_barter_set()
         self.bargaining_set()
         self.risk_preferences()
         self.bargaining_power()
@@ -626,6 +627,190 @@ class Plotter:
         out = self.fig_dir / "price_beliefs.pdf"
         fig.savefig(out, bbox_inches="tight")
         log.info("wrote %s", out)
+        return fig
+
+    def toy_barter_set(self):
+        """Section 3.2 - toy barter sets in the three cases, plus two mapping figures.
+
+        One stylised model for both structures. A contract is a quantity x in [0, 1]
+        (the cap is 1) and a strike S. The surpluses over the disagreement point are
+
+            w_G(x, S) = x (S - sG) - cG x^2 - k/2 (x S)^2
+            w_L(x, S) = x (sL - S) - cL x^2 - k/2 (x S)^2
+
+        - sG, sL: first-unit break-even strikes, so (C1) is sG < sL.
+        - cG, cL: each extra unit hedges less, so the value of an extra unit falls.
+        - k: risk of the strike payment z = x S. Baseload has k = 0: the strike moves
+          money one for one, every constant-quantity line has slope -1 and the barter
+          set is a right triangle. PAP has k > 0: the strike multiplies a random output,
+          so the lines bend and the barter set has a curved frontier.
+        Both surpluses are concave in (x, z), as Theorems 1 and 2 require.
+
+        Needs no results. Own look, agreed for this figure (Nature palette, 7 pt), so the
+        rcParams are set locally. Writes barter_set_cases (in the paper), barter_set_map_strike
+        and barter_set_map_quantity.
+        """
+        RED, CYAN, GREEN, BLUE = "#E64B35", "#4DBBD5", "#00A087", "#3C5488"  # NPG colours
+        GREY = "0.80"
+        SR, SU = 0.15, 0.85  # strike bounds S^R, S^U
+        CASES = {  # (sG, sL, cG, cL)
+            "Case 1: interior": (0.25, 0.75, 0.30, 0.30),
+            "Case 2: no agreement": (0.60, 0.40, 0.30, 0.30),
+            "Case 3: cap": (0.20, 0.80, 0.04, 0.04),
+        }
+        LIMITS = {  # axis range per case
+            "Case 1: interior": (-0.053, 0.16),
+            "Case 2: no agreement": (-0.053, 0.16),
+            "Case 3: cap": (-0.20, 0.60),
+        }
+        ROWS = {"Baseload": (0.0, "volume $M$"), "PAP": (0.6, r"share $\gamma$")}  # k, x label
+        CAP_LABEL = {"Baseload": "$M^U$", "PAP": "1"}  # label of the quantity cap on the x axis
+
+        def surpluses(x, S, sG, sL, cG, cL, k):
+            """Surpluses of the Generator and the Buyer at quantity x and strike S."""
+            wG = x * (S - sG) - cG * x**2 - k / 2 * (x * S) ** 2
+            wL = x * (sL - S) - cL * x**2 - k / 2 * (x * S) ** 2
+            return wG, wL
+
+        def marginal_strikes(x, sG, sL, cG, cL, k):
+            """Marginal break-even strikes s_G(x), s_L(x): they solve d w_i / d x = 0,
+            a quadratic in S when k > 0."""
+            if k == 0:
+                return sG + 2 * cG * x, sL - 2 * cL * x
+            kx = np.maximum(k * x, 1e-12)
+            with np.errstate(invalid="ignore"):  # no real root: no strike makes the unit worth it
+                mG = (1 - np.sqrt(1 - 4 * kx * (sG + 2 * cG * x))) / (2 * kx)
+                mL = (-1 + np.sqrt(1 + 4 * kx * (sL - 2 * cL * x))) / (2 * kx)
+            return mG, mL
+
+        def nash(p, k, tau_G=0.5):
+            """Weighted NBS by grid search: (x, S, w_G, w_L), or None if no agreement."""
+            X, S = np.meshgrid(np.linspace(0, 1, 401), np.linspace(SR, SU, 401))
+            wG, wL = surpluses(X, S, *p, k)
+            ok = (wG > 0) & (wL > 0)
+            if not ok.any():
+                return None
+            obj = np.where(
+                ok,
+                tau_G * np.log(np.where(ok, wG, 1)) + (1 - tau_G) * np.log(np.where(ok, wL, 1)),
+                -np.inf,
+            )
+            i = np.unravel_index(obj.argmax(), obj.shape)
+            return X[i], S[i], wG[i], wL[i]
+
+        def surplus_axes(ax, lim):
+            """Surplus-plane panel: disagreement point at the origin, equal scales."""
+            ax.plot(0, 0, "ko", ms=2.5)
+            ax.axhline(0, color="k", lw=0.4)
+            ax.axvline(0, color="k", lw=0.4)
+            ax.set(xlim=lim, ylim=lim, aspect="equal", xticks=[0], yticks=[0],
+                   xlabel="$w_G$", ylabel="$w_L$")
+
+        for row, (k, _) in ROWS.items():  # check: a cap case must give 1 for every bargaining power
+            for name, p in CASES.items():
+                q = [None if (n := nash(p, k, t)) is None else round(float(n[0]), 3)
+                     for t in (0.25, 0.5, 0.75)]
+                log.info("%s %s: agreed quantity for tau_G 0.25 / 0.5 / 0.75: %s", row, name, q)
+
+        x = np.linspace(0, 1, 300)
+        S = np.linspace(SR, SU, 200)
+
+        with mpl.rc_context():
+            mpl.rcdefaults()
+            mpl.rcParams.update(
+                {
+                    "font.family": "sans-serif",
+                    "font.sans-serif": list(self.p.font.family),
+                    "mathtext.fontset": "custom",
+                    "mathtext.rm": "sans",
+                    "mathtext.it": "sans:italic",
+                    "font.size": 7,
+                    "axes.titlesize": 8,
+                    "axes.labelsize": 8,
+                    "legend.fontsize": 6,
+                    "pdf.fonttype": 42,
+                    "axes.spines.top": False,
+                    "axes.spines.right": False,
+                    "axes.linewidth": 0.5,
+                }
+            )
+
+            # ---- Figure 1: the three cases
+            fig, axs = plt.subplots(2, 4, figsize=(7.1, 4.3), layout="constrained")
+            fig.get_layout_engine().set(w_pad=0.02, h_pad=0.02, wspace=0, hspace=0)
+            for r, (row, (k, xlabel)) in enumerate(ROWS.items()):
+                # contract space, Case 1: strike bounds and the two marginal break-even strikes
+                ax = axs[r, 0]
+                p = CASES["Case 1: interior"]
+                mG, mL = marginal_strikes(x, *p, k)
+                ax.axhline(SU, color=CYAN, lw=1, label="Highest strike $S^U$")
+                ax.axhline(SR, color=BLUE, lw=1, label="Lowest strike $S^R$")
+                ax.plot(x, mG, "k", lw=1, label="Generator break-even $s_G(x)$")
+                ax.plot(x, mL, "k--", lw=1, label="Buyer break-even $s_L(x)$")
+                ax.set_box_aspect(1)  # square, like the surplus panels
+                ax.fill_between(x, mG, mL, where=mL >= mG, color=GREY)  # units that create value
+                ax.set(xlim=(0, 1), ylim=(0, 1), xticks=[0, 1], xticklabels=["0", CAP_LABEL[row]],
+                       yticks=[], xlabel=xlabel, ylabel=f"{row}\nstrike $S$")
+                if r == 0:
+                    ax.set_title("Contract space")
+
+                # surplus plane: constant-quantity lines, images of the strike bounds, barter set, NBS
+                for c, (name, p) in enumerate(CASES.items(), start=1):
+                    ax = axs[r, c]
+                    lim = LIMITS[name]
+                    env_g = np.linspace(*lim, 900)
+                    env = np.full_like(env_g, -np.inf)
+                    for xi in np.linspace(0.02, 1, 45):
+                        wG, wL = surpluses(xi, S, *p, k)
+                        ax.plot(wG, wL, color=GREY, lw=0.6, zorder=0)  # one quantity, strike S^R to S^U
+                        env = np.maximum(env, np.interp(env_g, wG, wL, left=-np.inf, right=-np.inf))
+                    ax.plot(*surpluses(x, SR, *p, k), color=BLUE, lw=1)  # image of the edge S = S^R
+                    ax.plot(*surpluses(x, SU, *p, k), color=CYAN, lw=1)  # image of the edge S = S^U
+                    top = np.where(env_g >= 0, np.maximum(env, 0), 0)
+                    ax.fill_between(env_g, 0, top, where=top > 0, color=RED, alpha=0.6, lw=0)  # B
+                    n = nash(p, k)
+                    if n is not None:  # Nash curve: w_G w_L = constant, the highest that touches B
+                        g = np.linspace(1e-3, lim[1], 300)
+                        ax.plot(g, n[2] * n[3] / g, color=GREEN, lw=1)
+                        ax.plot(n[2], n[3], "o", color=GREEN, ms=3.5, mfc="white", mew=0.9)  # NBS
+                    surplus_axes(ax, lim)
+                    if r == 0:
+                        ax.set_title(name)
+            handles = axs[0, 0].get_legend_handles_labels()[0] + [
+                Line2D([], [], color=GREY, lw=0.8, label="Fixed quantity"),
+                Patch(color=RED, alpha=0.6, label=r"Barter set $\mathbf{B}$"),
+                Line2D([], [], color=GREEN, lw=1, label="Nash product"),
+                Line2D([], [], color=GREEN, marker="o", mfc="white", ls="", ms=3.5, label="NBS"),
+            ]
+            fig.legend(handles=handles, loc="outside upper center", ncol=4, fontsize=7,
+                       frameon=False, borderpad=0.8)
+            out = self.fig_dir / "barter_set_cases.pdf"
+            fig.savefig(out)
+            log.info("wrote %s", out)
+
+            # ---- Figures 2 and 3: how the contract box maps
+            # Lines in the contract space (left) and the same lines in the surplus plane (right).
+            p, lim = CASES["Case 1: interior"], LIMITS["Case 1: interior"]
+            shades = LinearSegmentedColormap.from_list("shades", ["#1B2A4A", BLUE, "#C9D3EA"])
+            for what in ("strike", "quantity"):
+                fig2, axs = plt.subplots(2, 2, figsize=(3.5, 3.6), layout="constrained")
+                for r, (row, (k, xlabel)) in enumerate(ROWS.items()):
+                    values = np.linspace(SR, SU, 9) if what == "strike" else np.linspace(0.1, 1, 9)
+                    for v, colour in zip(values, shades(np.linspace(0, 1, len(values)))):
+                        if what == "strike":  # horizontal line: one strike, every quantity
+                            xs, Ss = x, np.full_like(x, v)
+                        else:  # vertical line: one quantity, every strike
+                            xs, Ss = np.full_like(S, v), S
+                        axs[r, 0].plot(xs, Ss, color=colour, lw=1)
+                        axs[r, 1].plot(*surpluses(xs, Ss, *p, k), color=colour, lw=1)
+                    axs[r, 0].set(xlim=(0, 1), ylim=(0, 1), xticks=[], yticks=[], xlabel=xlabel,
+                                  ylabel=f"{row}\nstrike $S$")
+                    surplus_axes(axs[r, 1], lim)
+                axs[0, 0].set_title("Contract space")
+                axs[0, 1].set_title("Surplus plane")
+                out = self.fig_dir / f"barter_set_map_{what}.pdf"
+                fig2.savefig(out)
+                log.info("wrote %s", out)
         return fig
 
     def _available(self, figure, sweeps):

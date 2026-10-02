@@ -8,9 +8,9 @@ type: asymmetric_info
 K_G_price:
   start: -0.5
   end: 0.5
-  n: 21          # step 0.05
+  n: 11          
 
 K_L_price:
   start: -0.5
   end: 0.5
-  n: 21
+  n: 11

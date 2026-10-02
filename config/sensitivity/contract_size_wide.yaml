@@ -14,7 +14,7 @@ M_MW:
 gamma:
   start: 0.025
   end: 1.0
-  n: 10
+  n: 11
 
 A_G: 0.5
 

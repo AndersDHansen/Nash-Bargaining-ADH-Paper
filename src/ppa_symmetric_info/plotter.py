@@ -36,6 +36,8 @@ class Plotter:
         self.root = Path(cfg.paths.root)
         self.fig_dir = self.root / "figures"
         self.fig_dir.mkdir(parents=True, exist_ok=True)
+        # Base case: the large Buyer (load_scale 1.0). Folders under results/sensitivity.
+        self.exp_bl, self.exp_pap = "baseload_large_buyer", "pap_large_buyer"
         self.apply_style()
 
     def apply_style(self):
@@ -75,6 +77,7 @@ class Plotter:
         self.bargaining_power()
         self.strike_vs_size()
         self.earnings()
+        self.buyer_size()
         self.price_beliefs()
 
     def case_study_summary(self):
@@ -154,8 +157,8 @@ class Plotter:
         # Set ylim + yticks (explicit ticks so they land on the bounds, not the
         # nearest "nice" number a locator would pick)
         axs[0].set_ylim(0, 250)
-        axs[1].set_ylim(45, 120)
-        axs[1].set_yticks([45, 60, 75, 90, 105, 120])
+        axs[1].set_ylim(60, 180)
+        axs[1].set_yticks([60, 90, 120, 150, 180])
         axs[2].set_ylim(0.6, 1.1)
         axs[2].set_yticks([0.6, 0.7, 0.8, 0.9, 1.0, 1.1])
 
@@ -191,7 +194,7 @@ class Plotter:
 
         Needs: bargaining_power sweep for both experiments.
         """
-        exps = [("default_baseload", "Baseload"), ("default_pap", "Pay-as-produced")]
+        exps = [(self.exp_bl, "Baseload"), (self.exp_pap, "Pay-as-produced")]
         if not self._available(
             "bargaining_set", [(e, "bargaining_power") for e, _ in exps]
         ):
@@ -254,8 +257,8 @@ class Plotter:
         Needs: risk_aversion sweep for both experiments.
         """
         exps = [
-            ("default_baseload", "baseload", "M_MWh_h", "Quantity $M^*$ [MW]"),
-            ("default_pap", "pap", "gamma", r"Share $\gamma^*$ [-]"),
+            (self.exp_bl, "baseload", "M_MWh_h", "Quantity $M^*$ [MW]"),
+            (self.exp_pap, "pap", "gamma", r"Share $\gamma^*$ [-]"),
         ]
         if not self._available(
             "risk_preferences", [(e[0], "risk_aversion") for e in exps]
@@ -283,12 +286,16 @@ class Plotter:
                 np.nan
             )  # J = 0 at the origin, so the quantity is arbitrary
 
+            # PAP: the share is 1 in every cell with A_L > 0, so only the strike is drawn
+            n = 1 if name == "pap" else 2
             fig, axs = plt.subplots(
-                2, 1, figsize=(self.p.width.single, 4.6), sharex=True
+                n, 1, figsize=(self.p.width.single, 2.3 * n), sharex=True, squeeze=False
             )
+            axs = axs[:, 0]
             heat(axs[0], S, "Strike $S^*$ [EUR/MWh]")
-            heat(axs[1], Q, qlabel)
-            axs[1].set_xlabel("Buyer risk aversion $A_L$")
+            if n == 2:
+                heat(axs[1], Q, qlabel)
+            axs[-1].set_xlabel("Buyer risk aversion $A_L$")
 
             out = self.fig_dir / f"risk_preferences_{name}.pdf"
             fig.savefig(out, bbox_inches="tight")
@@ -309,7 +316,7 @@ class Plotter:
 
         Needs: bargaining_power sweep for both experiments.
         """
-        exps = [("default_baseload", "Baseload"), ("default_pap", "Pay-as-produced")]
+        exps = [(self.exp_bl, "Baseload"), (self.exp_pap, "Pay-as-produced")]
         if not self._available(
             "bargaining_power", [(e, "bargaining_power") for e, _ in exps]
         ):
@@ -376,8 +383,8 @@ class Plotter:
         Needs: contract_size and bargaining_power sweeps for both experiments.
         """
         exps = [
-            ("default_baseload", "M_MWh_h", "Contract volume $M$ [MW]"),
-            ("default_pap", "gamma", r"Contract share $\gamma$ [-]"),
+            (self.exp_bl, "M_MWh_h", "Contract volume $M$ [MW]"),
+            (self.exp_pap, "gamma", r"Contract share $\gamma$ [-]"),
         ]
         sweeps = [
             (e, s) for e, *_ in exps for s in ("contract_size", "bargaining_power")
@@ -435,8 +442,8 @@ class Plotter:
             ax.set_xlim(left=0)
             ax.set_xlabel(xlabel)
             ax.set_ylabel("Strike $S$ [EUR/MWh]")
-        axs[0].set_ylim(100, 140)
-        axs[0].set_yticks(range(100, 141, 5))
+        axs[0].set_ylim(100, 145)
+        axs[0].set_yticks(range(100, 146, 5))
         axs[1].set_ylim(70, 110)
         axs[1].set_yticks(range(70, 111, 10))
 
@@ -487,7 +494,7 @@ class Plotter:
 
         Needs: risk_aversion sweep for both experiments.
         """
-        exps = [("default_baseload", "Baseload"), ("default_pap", "Pay-as-produced")]
+        exps = [(self.exp_bl, "Baseload"), (self.exp_pap, "Pay-as-produced")]
         if not self._available("earnings", [(e, "risk_aversion") for e, _ in exps]):
             return None
         a_g = 0.5
@@ -559,6 +566,59 @@ class Plotter:
         log.info("wrote %s", out)
         return fig
 
+    def buyer_size(self):
+        """Section 4.6 - agreed contract size against the Buyer's risk aversion
+        (A_G = 0.5, tau_L = 0.5) for the three Buyer sizes. Top: baseload volume.
+        Bottom: PAP share.
+
+        Every line starts at the Generator's preferred size (A_L = 0) and moves towards
+        that Buyer's own preferred size: up for the large Buyer, flat for the similar
+        one, down for the small one. The large Buyer's PAP share stays at the cap.
+
+        Needs: risk_aversion sweep for {baseload,pap}_{large,similar,small}_buyer.
+        """
+        sizes = [  # dark = large, as in the other three-level figures
+            ("large", "Large Buyer", self.p.levels[2]),
+            ("similar", "Similar Buyer", self.p.levels[1]),
+            ("small", "Small Buyer", self.p.levels[0]),
+        ]
+        rows = [
+            ("baseload", "M_MWh_h", "Volume $M^*$ [MW]"),
+            ("pap", "gamma", r"Share $\gamma^*$ [-]"),
+        ]
+        sweeps = [(f"{s}_{n}_buyer", "risk_aversion") for s, *_ in rows for n, *_ in sizes]
+        if not self._available("buyer_size", sweeps):
+            return None
+
+        fig, axs = plt.subplots(
+            2, 1, figsize=(self.p.width.single, 4.2), sharex=True, layout="constrained"
+        )
+        for ax, (struct, q, ylabel) in zip(axs, rows):
+            for size, label, colour in sizes:
+                d = pd.read_csv(
+                    self.root
+                    / "results"
+                    / "sensitivity"
+                    / f"{struct}_{size}_buyer_risk_aversion"
+                    / "results_combined.csv"
+                )
+                d = d[np.isclose(d.A_G, 0.5)].sort_values("A_L")
+                ax.plot(d.A_L, d[q], color=colour, label=label)
+            ax.set_ylabel(ylabel)
+        axs[1].set_xlim(0, 1)
+        axs[1].set_xlabel("Buyer risk aversion $A_L$")
+        fig.legend(
+            *axs[0].get_legend_handles_labels(),
+            loc="outside upper center",
+            ncol=3,
+            frameon=False,
+        )
+
+        out = self.fig_dir / "buyer_size.pdf"
+        fig.savefig(out, bbox_inches="tight")
+        log.info("wrote %s", out)
+        return fig
+
     def price_beliefs(self):
         """Heterogeneous price beliefs: joint gain and contract size against the gap.
 
@@ -572,9 +632,10 @@ class Plotter:
 
         Needs: asymmetric_info sweep for both experiments.
         """
+        blue, red = self.p.cmap.diverging[1], self.p.cmap.diverging[7]
         exps = [
-            ("default_baseload", "Baseload", "M_MWh_h", 30.0),
-            ("default_pap", "Pay-as-produced", "gamma", 1.0),
+            (self.exp_bl, "Baseload", "M_MWh_h", 30.0, blue),
+            (self.exp_pap, "Pay-as-produced", "gamma", 1.0, red),
         ]
         if not self._available(
             "price_beliefs", [(e, "asymmetric_info") for e, *_ in exps]
@@ -584,8 +645,7 @@ class Plotter:
         fig, axs = plt.subplots(
             2, 1, figsize=(self.p.width.single, 4.2), sharex=True, layout="constrained"
         )
-        colour = self.p.levels[2]
-        for exp, name, q, cap in exps:
+        for exp, name, q, cap, colour in exps:
             d = pd.read_csv(
                 self.root
                 / "results"
@@ -612,7 +672,7 @@ class Plotter:
 
         for ax in axs:
             ax.axvline(0, color=self.p.colour.neutral, lw=0.5)  # common beliefs
-        axs[0].set_ylabel("Joint gain [MEUR]")
+        axs[0].set_ylabel("Joint surplus $W$ [MEUR]")
         axs[1].set_ylabel("Contract size / maximum [-]")
         axs[1].set_ylim(0, 1.05)
         axs[1].set_xlim(-0.5, 0.5)

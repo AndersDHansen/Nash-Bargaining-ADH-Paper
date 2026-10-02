@@ -1,6 +1,7 @@
 # Roadmap to EJOR submission
 
-Living checklist for the base paper. Updated 2026-09-23 (Section 4 structure agreed).
+Living checklist for the base paper. Latest status: section 0c (2026-10-02); the sections
+below it are older and kept as a record. Day-to-day state: `notes/session_handoff.md`.
 Companion notes: `docs/theory/gamma_drivers.md` (γ diagnosis), `docs/theory/axiom_choice.md`
 (why the NBS), `docs/paper/section4_plan.md` (earlier sweep-level plan, partly superseded).
 
@@ -9,6 +10,87 @@ information, provided the research question and gaps no longer promise them. Eve
 about incomplete information moves to a second release.
 
 ---
+
+## 0c. Status 2026-10-02: Lesia's meeting feedback, re-examination, plan for Section 4
+
+**State.** Overleaf b5a8cb2 compiles to 22 pages; Sections 1-5 and the appendices are written. The
+user moved the earnings subsection ahead of risk preferences (order now: case, barter set, earnings,
+risk preferences, bargaining power, Buyer size, beliefs). All Section 4 numbers were recomputed from
+the runs (`notes/analysis/sec4_large_buyer_numbers.py`) and match the text. Nothing new has to be run:
+every item below comes from the existing sweeps and the scenario files
+(`notes/analysis/lesia_meeting_checks.py`).
+
+**Re-examination (whole paper).** The argument holds and the sections connect: exposure and
+preferred volume (1.1) -> earnings, utility, surplus (2) -> conditions (C1)/(C2) and two theorems (3)
+-> cases and numbers (4) -> conclusion (5). Still wrong or broken:
+- 4.1 table: "Buyer consumption (expected) 58.5 GWh/yr" (must be 146.2), duplicate row, P95 155.0 (154.9).
+- 4.2: placeholder figure (two legacy images, caption "Caption"); title says "Bargaining set".
+- 2.1: "with divergent beliefs, each party also expects to gain from the price difference itself" is
+  false when the Generator is the more optimistic party, and contradicts 4.7.
+- 3.3 / 3.4: bounds M^R, gamma^R, gamma^U are not defined (Section 2 uses 0 and 1); the settlement is
+  printed with the yearly price and no sum over hours, unlike (pi_G_BL); the solver is not named.
+- Undefined: `Boyd2004Convex`, `Shapiro2009Lectures`, `TODO`, `TODO_cost_of_capital`, `tab:summary_stats`.
+- Wording: 2.1 utility sentence and "Here they are defined here"; 1.1 "reducing the risks of ...
+  cannibalisation" (baseload does not); "reservation price" (Section 1) against "reservation strike"
+  (Sections 3-4); abstract "joint gain" and "only of the strike" (abstract is edited last).
+- 4.4 ends with the risk-removed sentence (29 % / 74 %, 81 % / 46 %), which now repeats the earnings
+  subsection in another measure.
+
+**Lesia's feedback (meeting of 2026-10-02) and verdict.** She saw the paper and the seven figures in
+`lesia_figures/`.
+
+| # | Her point | Verdict | What it becomes |
+| --- | --- | --- | --- |
+| 1 | Structure works | - | keep |
+| 2 | Volume heat maps: show the Buyer's P50 consumption | applicable | mark the two preferred volumes and the expected consumption on the colour bar and in the caption |
+| 3 | Belief surplus is virtual | applicable, strong | add the surplus valued at the scenario prices to the belief figure; fix the 2.1 sentence |
+| 4 | How much is a contract worth: Nash product, individual or joint surplus? | individual surplus w_i (per party) and joint surplus W (total); not the Nash product | state that w_i is the sure amount a party would pay for the contract; give W per contracted MWh |
+| 5 | Surplus = money part + CVaR part; visualise | applicable | new small bar figure at the base case |
+| 6 | Earnings before sizes, maybe also surpluses | applicable (earnings already moved) | value block in 4.2, then earnings, then terms |
+| 7 | A surplus comparison | applicable per party | the bar figure of point 5 compares both structures per party |
+| 8 | Buyer-size figure: P50 load line | applicable for baseload; for PAP the line must be in value | reference lines in `buyer_size` |
+| 9 | One bargaining-power figure | applicable | keep `strike_vs_size`, drop `bargaining_power` |
+| 10 | Layout of the barter-set figure | applicable (assumed: the 4.2 figure) | build the real two-panel figure |
+| 11 | Surplus heat map and the split between parties | W heat map yes; split heat map no | W heat maps replace the PAP strike heat map |
+
+**Verified numbers behind the verdicts.**
+- Expected consumption 16.69 / 7.91 / 4.17 MW (large / similar / small Buyer); the Buyer's preferred
+  baseload volume is 4 % above it (17.39 / 8.24 / 4.35 MW). Generator: expected output 11.26 MW,
+  preferred volume 7.82 MW. In energy the three Buyers are 1.48 / 0.70 / 0.37 of the plant, in value
+  2.11 / 1.00 / 0.53; the preferred PAP shares follow the value figure (cap / 0.97 / 0.51).
+- Each surplus = expected payment received + own risk aversion x risk removed (exact to 1e-12).
+  Base case, baseload: Generator +9.51 + 4.41 = 13.92; Buyer -9.51 + 23.43 = 13.92 MEUR.
+  PAP: Generator +1.03 + 12.26 = 13.29; Buyer -1.03 + 14.54 = 13.52 MEUR.
+- W per contracted MWh: 11.89 EUR/MWh (baseload, equal to the gap between the reservation strikes)
+  and 13.59 EUR/MWh (PAP). The surplus is 8.3 % of the Generator's expected merchant revenue and
+  3.9 % of the Buyer's expected cost.
+- Split of W at equal bargaining power: Generator share 0.500-0.501 (baseload), 0.491-0.500 (PAP)
+  over the whole risk grid, so a heat map of the split would show one colour.
+- Beliefs, surplus valued at the scenario prices (no shift): baseload 27.8 MEUR at gap 0, 24.7 at
+  +0.10, 19.2 at +0.15 and -16.4 from +0.20 (30 MW), against 108 to 294 MEUR perceived; PAP stays at
+  26.8 for every gap from -0.05 to +0.50 against up to 111 MEUR perceived. At +0.20 the party whose
+  belief is wrong loses 70.2 MEUR under baseload and 3.3 MEUR under PAP.
+- Structures compared per party over the risk grid (120 cells): both parties gain more under
+  baseload in 65 (A_L/A_G >= 1), both under PAP in 49 (A_L/A_G <= 0.8), 6 split or tied. Not in the
+  paper; needs a yes.
+
+**Plan (nothing to run).**
+1. Quick text fixes: 4.1 table, 4.2 title, the 2.1 belief sentence.
+2. Decisions by the user (below), then figures as `Plotter` methods, one per figure, proposed first:
+   real barter-set figure (4.2); `surplus_parts` (new); colour-bar marks on `risk_preferences`
+   baseload; W heat maps in place of `risk_preferences_pap`; reference lines in `buyer_size`; second
+   curve in `price_beliefs`; `bargaining_power.pdf` dropped. Figure count stays at ten.
+3. Short text blocks and captions for 4.2, 4.4, 4.5, 4.6, 4.7 (Section 4 must not grow: each addition
+   replaces something, e.g. the risk-removed sentence and the PAP plane formula).
+4. Then the Sections 1-3 leftovers listed above and in `notes/session_handoff.md`.
+
+**Decisions needed.** (a) w_i and W as the value measures, with W per contracted MWh; (b) the
+money / risk bar figure; (c) the belief figure with the surplus at scenario prices, and the wording
+("perceived" against "valued at the scenario prices"); (d) reference lines: expected consumption for
+baseload, consumption relative to output in value for PAP, and whether to show the Generator's
+expected output; (e) which bargaining-power figure stays; (f) W heat maps instead of the PAP strike
+heat map; (g) whether the per-party structure comparison enters 4.4 as one sentence; (h) confirm that
+"barter set figure 4" means the 4.2 figure.
 
 ## 0b. Status 2026-09-28: Buyer size, manuscript review, Lesia's revisions next
 

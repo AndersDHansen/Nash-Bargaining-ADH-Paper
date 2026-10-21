@@ -1,0 +1,12 @@
+# Sensitivity: one row of the risk-aversion grid, A_G fixed and A_L swept finely.
+# Used by the load-size figure (buyer_size), which only needs A_G = 0.5. A full
+# risk_aversion grid for each of the six load-size experiments would cost 441 solves
+# each; this costs 101 (steps of 0.01 in A_L).
+type: risk_aversion_line
+
+A_G: 0.5
+
+A_L:
+  start: 0.0
+  end: 1.0
+  n: 101

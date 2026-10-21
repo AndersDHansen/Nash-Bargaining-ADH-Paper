@@ -3,14 +3,15 @@
 # both the contract and its merchant position under its own belief. All other parameters
 # (A_G, A_L, tau_L) come from the experiment config.
 # Odd n so the grid contains K = 0 and the diagonal K_G = K_L (common beliefs).
+# n = 41: steps of 0.025, so belief gaps K_L - K_G come in steps of 0.025 (1,681 points per structure).
 type: asymmetric_info
 
 K_G_price:
   start: -0.5
   end: 0.5
-  n: 11          
+  n: 41
 
 K_L_price:
   start: -0.5
   end: 0.5
-  n: 11
+  n: 41

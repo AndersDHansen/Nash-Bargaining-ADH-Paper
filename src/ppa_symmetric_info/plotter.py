@@ -10,7 +10,7 @@ from matplotlib.colors import LinearSegmentedColormap
 from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
 
-from .utils import get_logger
+from .utils import cvar_left, get_logger
 
 log = get_logger(__name__)
 # PDF font subsetting logs every step at INFO under Hydra's root logger
@@ -72,11 +72,13 @@ class Plotter:
         log.info("Plotting all figures for the paper")
         self.case_study_summary()
         self.toy_barter_set()
-        self.bargaining_set()
+        self.barter_set()
         self.risk_preferences()
+        self.joint_surplus()
         self.bargaining_power()
         self.strike_vs_size()
         self.earnings()
+        self.surplus_parts()
         self.buyer_size()
         self.price_beliefs()
 
@@ -136,13 +138,13 @@ class Plotter:
         q = band(axs[1], "production", c.generator)
         label(axs[1], q[0, 4], "Generator", c.generator, above=True)
         q = band(axs[1], "load", c.buyer, float(self.cfg.experiment.load_scale))
-        label(axs[1], q[0, 4], "Buyer", c.buyer, above=True)
+        label(axs[1], q[0, 4], "Load", c.buyer, above=True)
         axs[1].set_ylabel("Energy [GWh/yr]")
 
         q = band(axs[2], "capture_rate", c.generator)
         label(axs[2], q[0, 4], "Generator", c.generator, above=True)
         q = band(axs[2], "load_capture_rate", c.buyer)
-        label(axs[2], q[0, 4], "Buyer", c.buyer, above=True)
+        label(axs[2], q[0, 4], "Load", c.buyer, above=True)
         axs[2].set_ylabel("Capture rate [-]")
 
         # Set xlim
@@ -182,63 +184,97 @@ class Plotter:
         log.info("wrote %s", self.fig_dir / "case_study.pdf")
         return fig
 
-    def bargaining_set(self):
-        """Bargaining set in gain space, one single-column panel per structure.
+    def barter_set(self):
+        """Section 4.2 - barter set of the base case in the surplus plane, zoomed on it:
+        baseload (top), PAP (bottom), in the layout of Anders' figure.
 
-        Each tau_L of the bargaining_power sweep gives one Nash solution on the
-        Pareto frontier, so the (delta_G, delta_L) pairs trace the frontier. The
-        shaded area between it and the axes is the bargaining set, the origin is
-        the disagreement point, the star is the symmetric solution (tau_L = 0.5)
-        and the small markers show tau_L = 0, 0.25, ..., 1. Equal aspect, so the
-        slope (-1 baseload, -1.017 PAP) is drawn true. Uses the middle A_L.
+        Dark and light blue: the contracts at the strike bounds 40 and 200
+        EUR/MWh as the quantity grows from zero; both start at the disagreement point, since
+        zero quantity gives zero surplus. Red: the contracts at the agreed quantity (M* or
+        gamma*) for every strike, dashed where one party is worse off; its solid part is the
+        frontier of the barter set B (shaded). Circle: the NBS. Colours as in toy_barter_set.
 
-        Needs: bargaining_power sweep for both experiments.
+        Surpluses come from the scenarios (Section 2); the agreed contract from the
+        risk_aversion sweep at the base case (A_G = A_L = 0.5, tau_L = 0.5). Checked against
+        the solver: the first-unit strikes (SR_star, SU_star) and the frontier end points of
+        the bargaining_power sweep (tau_L = 0 and 1) are reproduced exactly.
+        Needs: risk_aversion sweep for both experiments.
         """
-        exps = [(self.exp_bl, "Baseload"), (self.exp_pap, "Pay-as-produced")]
-        if not self._available(
-            "bargaining_set", [(e, "bargaining_power") for e, _ in exps]
-        ):
+        RED, GREEN, BLUE, CYAN = "#E64B35", "#00A087", "#3C5488", "#4DBBD5"  # toy_barter_set
+        rows = [  # experiment, title, quantity column, cap, label of the agreed quantity
+            (self.exp_bl, "Baseload", "M_MWh_h", 30.0, "$M^* = {:.2f}$ MW"),
+            (self.exp_pap, "Pay-as-produced", "gamma", 1.0, r"$\gamma^* = {:.0f}$"),
+        ]
+        if not self._available("barter_set", [(e, "risk_aversion") for e, *_ in rows]):
             return None
+        sc = self._scenarios()
+        p, T = sc["p"], sc["price"].shape[0]
+        L, P = sc["price"].sum(0), sc["production"].sum(0)  # price and output summed over years
+        gm = (sc["capture_rate"] * sc["price"] * sc["production"]).sum(0)  # Generator merchant
+        lim = (-5, 31)  # MEUR
 
-        fig, axs = plt.subplots(
-            2, 1, figsize=(self.p.width.single, 5.6), layout="constrained"
-        )
-        for ax, (exp, title) in zip(axs, exps):
-            d = pd.read_csv(
-                self.root
-                / "results"
-                / "sensitivity"
-                / f"{exp}_bargaining_power"
-                / "results_combined.csv"
+        def root(f):
+            """Strike in [40, 200] EUR/MWh at which the increasing function f crosses zero."""
+            lo, hi = 40.0, 200.0
+            for _ in range(40):
+                mid = (lo + hi) / 2
+                lo, hi = (mid, hi) if f(mid) < 0 else (lo, mid)
+            return (lo + hi) / 2
+
+        fig, axs = plt.subplots(2, 1, figsize=(self.p.width.single, 4.9), layout="constrained")
+        for ax, (exp, title, q_key, cap, label) in zip(axs, rows):
+            # base case from the experiment config: the sweep's saved config holds the
+            # last grid point (A_G = A_L = 1), not the base case
+            e = OmegaConf.load(self.root / "config" / "experiment" / f"{exp}.yaml")
+            A_G, A_L = float(e.A_G), float(e.A_L)
+            lm = -e.load_scale * (sc["load_capture_rate"] * sc["price"] * sc["load"]).sum(0)
+            U = lambda x, A: (1 - A) * (x @ p) + A * cvar_left(x, p, e.alpha)
+            d_G, d_L = U(gm, A_G), U(lm, A_L)
+            if e.contract_type == "baseload":  # what one MW pays the Generator at strike S
+                unit = lambda S: 8.76 * (S / 1e3 * T - L)
+            else:  # what the whole output pays the Generator at strike S
+                unit = lambda S: S / 1e3 * P - gm
+            w = lambda q, S: (U(gm + q * unit(S), A_G) - d_G, U(lm - q * unit(S), A_L) - d_L)
+
+            d = pd.read_csv(self.root / "results" / "sensitivity" / f"{exp}_risk_aversion" / "results_combined.csv")
+            r = d[np.isclose(d.A_G, A_G) & np.isclose(d.A_L, A_L)].iloc[0]  # agreed contract
+            q_star = r[q_key]
+            lo, hi = root(lambda S: w(q_star, S)[0]), root(lambda S: -w(q_star, S)[1])
+
+            for S, colour in ((40.0, BLUE), (200.0, CYAN)):  # strike bounds, quantity 0 to cap
+                ax.plot(*np.array([w(q, S) for q in np.linspace(0, cap, 61)]).T, color=colour, lw=1)
+            ax.plot(*np.array([w(q_star, S) for S in np.linspace(40, 200, 161)]).T, color=RED, lw=0.8, ls="--")
+            front = np.array([w(q_star, S) for S in np.linspace(lo, hi, 60)])
+            ax.fill(np.r_[0, front[:, 0]], np.r_[0, front[:, 1]], color=RED, alpha=0.35, lw=0)
+            ax.plot(*front.T, color=RED, lw=1.5)
+            x, y = front[1]  # label the frontier, just above its upper-left end
+            ax.text(x + 0.9, y + 0.9, label.format(q_star), color=RED, rotation=-45, rotation_mode="anchor")
+            ax.plot(r.delta_G, r.delta_L, "o", color=GREEN, mfc="white", ms=5, mew=1.2)
+            ax.plot(0, 0, "ko", ms=3)  # disagreement point
+            ax.axhline(0, color="k", lw=0.4)
+            ax.axvline(0, color="k", lw=0.4)
+            ticks = [0, 10, 20, 30]
+            ax.set(
+                xlim=lim, ylim=lim, aspect="equal", xticks=ticks, yticks=ticks, title=title,
+                ylabel="Load surplus $w_L$ [MEUR]",
             )
-            a_l = sorted(d.A_L.unique())
-            f = d[np.isclose(d.A_L, a_l[len(a_l) // 2])].sort_values("delta_G")
-            dG, dL = f.delta_G.clip(lower=0), f.delta_L.clip(lower=0)
-
-            # bargaining set: origin, then along the frontier
-            ax.fill(
-                np.r_[0, dG, 0],
-                np.r_[0, dL, 0],
-                color=self.p.levels[1],
-                alpha=0.15,
-                lw=0,
+            log.info(
+                "barter_set %s: agreed %.3f, accepted strikes %.1f-%.1f, NBS %.2f / %.2f (computed %.2f / %.2f)",
+                title, q_star, lo, hi, r.delta_G, r.delta_L, *w(q_star, r.S_EUR_MWh),
             )
-            ax.plot(dG, dL, color=self.p.levels[2])
-            ticks = f[np.isclose(f.tau_L % 0.25, 0) | np.isclose(f.tau_L % 0.25, 0.25)]
-            ax.plot(ticks.delta_G, ticks.delta_L, "o", color=self.p.levels[2], ms=2.5)
-            nash = f[np.isclose(f.tau_L, 0.5)]
-            ax.plot(nash.delta_G, nash.delta_L, "*", color=self.p.levels[2], ms=8)
-            ax.plot(0, 0, "o", color=self.p.colour.neutral, ms=4)
 
-            top = 1.08 * max(dG.max(), dL.max())
-            ax.set_xlim(-0.03 * top, top)
-            ax.set_ylim(-0.03 * top, top)
-            ax.set_aspect("equal")
-            ax.set_title(title)
-            ax.set_xlabel(r"Generator gain $\Delta_G$ [MEUR]")
-            ax.set_ylabel(r"Buyer gain $\Delta_L$ [MEUR]")
+        axs[-1].set_xlabel("Generator surplus $w_G$ [MEUR]")  # same axes in both panels
+        handles = [
+            Patch(color=RED, alpha=0.35, lw=0, label=r"Barter set $\mathbf{B}$"),
+            Line2D([], [], color=RED, lw=1.5, label="Agreed quantity"),
+            Line2D([], [], color=BLUE, lw=1, label=r"$\underset{\_\!\_}{S}$ = 40 EUR/MWh"),
+            Line2D([], [], color=CYAN, lw=1, label=r"$\overline{S}$ = 200 EUR/MWh"),
+            Line2D([], [], color=GREEN, marker="o", mfc="white", ls="", ms=5, label="NBS"),
+            Line2D([], [], color="k", marker="o", ls="", ms=3, label="Disagreement point"),
+        ]
+        fig.legend(handles=handles, loc="outside upper center", ncol=3, frameon=False)
 
-        out = self.fig_dir / "bargaining_set.pdf"
+        out = self.fig_dir / "barter_set.pdf"
         fig.savefig(out, bbox_inches="tight")
         log.info("wrote %s", out)
         return fig
@@ -269,14 +305,15 @@ class Plotter:
         )
         cmap.set_bad(self.p.cmap.masked)
 
-        def heat(ax, g, label):
+        def heat(ax, g, label, vmin=None, vmax=None):
             h = (g.index[1] - g.index[0]) / 2
             ext = [g.columns[0] - h, g.columns[-1] + h, g.index[0] - h, g.index[-1] + h]
             im = ax.imshow(
-                g.to_numpy(), origin="lower", extent=ext, aspect="auto", cmap=cmap
+                g.to_numpy(), origin="lower", extent=ext, aspect="auto", cmap=cmap,
+                vmin=vmin, vmax=vmax,
             )
-            fig.colorbar(im, ax=ax, label=label)
             ax.set_ylabel("Generator risk aversion $A_G$")
+            return fig.colorbar(im, ax=ax, label=label)
 
         figs = []
         for exp, name, qkey, qlabel in exps:
@@ -286,22 +323,74 @@ class Plotter:
                 np.nan
             )  # J = 0 at the origin, so the quantity is arbitrary
 
-            # PAP: the share is 1 in every cell with A_L > 0, so only the strike is drawn
-            n = 1 if name == "pap" else 2
-            fig, axs = plt.subplots(
-                n, 1, figsize=(self.p.width.single, 2.3 * n), sharex=True, squeeze=False
-            )
-            axs = axs[:, 0]
+            fig, axs = plt.subplots(2, 1, figsize=(self.p.width.single, 4.6), sharex=True)
             heat(axs[0], S, "Strike $S^*$ [EUR/MWh]")
-            if n == 2:
-                heat(axs[1], Q, qlabel)
-            axs[-1].set_xlabel("Buyer risk aversion $A_L$")
+            if name == "pap":
+                # Fixed 0-1 scale: the share is 1 in every cell, so the panel is one colour
+                heat(axs[1], Q, qlabel, vmin=0, vmax=1)
+            else:
+                cb = heat(axs[1], Q, qlabel)
+                # The volume scale runs from the Generator's preferred volume (A_L = 0)
+                # to the Buyer's (A_G = 0): label both ends. White mark: the Buyer's
+                # expected consumption (Lesia's meeting point 2).
+                lo, hi = np.nanmin(Q.to_numpy()), np.nanmax(Q.to_numpy())
+                cb.set_ticks([lo, 10, 12, 14, hi], labels=[f"{lo:.1f}", "10", "12", "14", f"{hi:.1f}"])
+                sc = self._scenarios()
+                ls = OmegaConf.load(
+                    self.root / "results" / "sensitivity" / f"{exp}_risk_aversion" / "config.yaml"
+                ).experiment.load_scale
+                cb.ax.axhline(ls * (sc["load"].mean(0) @ sc["p"]) / 8.76, color="w", lw=1.5)
+            axs[-1].set_xlabel("Load risk aversion $A_L$")
 
             out = self.fig_dir / f"risk_preferences_{name}.pdf"
             fig.savefig(out, bbox_inches="tight")
             log.info("wrote %s", out)
             figs.append(fig)
         return figs
+
+    def joint_surplus(self):
+        """Joint surplus W = w_G + w_L over the risk grid: baseload (top), PAP (bottom).
+
+        Lesia's meeting point 11. One colour scale per panel, as in risk_preferences:
+        the structures are compared per party (earnings, surplus_parts), not through W.
+        The split is not drawn: at tau_L = 0.5 the Generator's share of W is 0.49-0.50
+        in every cell, so its map would be one colour. (0, 0) is masked: no risk aversion,
+        no value.
+
+        Needs: risk_aversion sweep for both experiments.
+        """
+        exps = [(self.exp_bl, "Baseload"), (self.exp_pap, "Pay-as-produced")]
+        if not self._available(
+            "joint_surplus", [(e, "risk_aversion") for e, _ in exps]
+        ):
+            return None
+        cmap = LinearSegmentedColormap.from_list(
+            "diverging", list(self.p.cmap.diverging)
+        )
+        cmap.set_bad(self.p.cmap.masked)
+
+        fig, axs = plt.subplots(
+            2, 1, figsize=(self.p.width.single, 4.6), sharex=True, layout="constrained"
+        )
+        for ax, (exp, title) in zip(axs, exps):
+            W = self._get_grid("risk_aversion", exp, "delta_G") + self._get_grid(
+                "risk_aversion", exp, "delta_L"
+            )
+            W.loc[0.0, 0.0] = np.nan
+            h = (W.index[1] - W.index[0]) / 2
+            ext = [W.columns[0] - h, W.columns[-1] + h, W.index[0] - h, W.index[-1] + h]
+            im = ax.imshow(
+                W.to_numpy(), origin="lower", extent=ext, aspect="auto", cmap=cmap
+            )
+            fig.colorbar(im, ax=ax, label="Joint surplus $W$ [MEUR]")
+            ax.set_title(title)
+            ax.set_ylabel("Generator risk aversion $A_G$")
+        axs[-1].set_xlabel("Load risk aversion $A_L$")
+
+        out = self.fig_dir / "joint_surplus.pdf"
+        fig.savefig(out, bbox_inches="tight")
+        log.info("wrote %s", out)
+        return fig
 
     def bargaining_power(self):
         """Strike against the Buyer's bargaining power tau_L.
@@ -356,7 +445,7 @@ class Plotter:
             columnspacing=1.0,  # fits the column at 9 pt
         )
         ax.set_xlim(0, 1)
-        ax.set_xlabel(r"Buyer bargaining power $\tau_L$")
+        ax.set_xlabel(r"Load bargaining power $\tau_L$")
         ax.set_ylabel("Strike $S^*$ [EUR/MWh]")
 
         out = self.fig_dir / "bargaining_power.pdf"
@@ -483,75 +572,44 @@ class Plotter:
         return fig
 
     def earnings(self):
-        """Contracted earnings against A_L at A_G = 0.5, and who carries the risk.
+        """Contracted earnings against each party's risk aversion, and who carries the risk.
 
-        Rows Generator and Buyer (shared y per row), columns baseload and PAP.
-        Bands as in the case-study figure: weighted P5-P95, P25-P75 and median over
-        the 2000 scenarios. Dotted lines: merchant (no-contract) P5, median and P95,
-        which do not depend on A_L. Earnings are totals over the 20-year tenor.
-        This is the one place the structures are compared on levels: earnings are
-        euros against a common baseline, the joint gain is not.
+        Rows Generator and Buyer (shared y per row), columns baseload and PAP. Three files:
+        earnings (against A_L at A_G = 0.5), earnings_ag (against A_G at A_L = 0.5) and
+        earnings_wide (both side by side, for a full-width figure). Bands as in the
+        case-study figure: weighted P5-P95, P25-P75 and median over the 2000 scenarios.
+        Dotted lines: merchant (no-contract) P5, median and P95, which do not depend on
+        risk aversion. Earnings are totals over the 20-year tenor. This is the one place
+        the structures are compared on levels: earnings are euros against a common
+        baseline, the joint gain is not.
 
         Needs: risk_aversion sweep for both experiments.
         """
         exps = [(self.exp_bl, "Baseload"), (self.exp_pap, "Pay-as-produced")]
         if not self._available("earnings", [(e, "risk_aversion") for e, _ in exps]):
             return None
-        a_g = 0.5
         c, bd = self.p.colour, self.p.bands
-        sg = self.cfg.scenario_gen
-        w = pd.read_csv(
-            self.root
-            / "data"
-            / "processed"
-            / f"scenarios_reduced_{sg.num_scenarios_reduced}"
-            / f"probabilities_scenarios_reduced_{sg.years}y_{sg.num_scenarios_reduced}s.csv"
-        )["Probability"].to_numpy()
-        w = w / w.sum()
+        w = self._scenarios()["p"]
         qs = sorted((*bd.outer, *bd.inner, bd.centre))  # P5, P25, P50, P75, P95
+        xlabels = {"A_L": "Load risk aversion $A_L$", "A_G": "Generator risk aversion $A_G$"}
+        files = {}
 
-        def slice_pct(exp, key):
-            """Weighted percentiles per A_L at A_G = a_g; scenarios are the rows."""
-            df = pd.read_csv(
-                self.root
-                / "results"
-                / "sensitivity"
-                / f"{exp}_risk_aversion"
-                / f"{key}.csv",
-                header=[0, 1],
-                index_col=0,
-            )
-            ag = df.columns.get_level_values(0).astype(float)
-            al = df.columns.get_level_values(1).astype(float)
-            keep = np.isclose(ag, a_g)
-            return al[keep].to_numpy(), wpct(df.loc[:, keep].to_numpy().T, w, qs)
-
-        fig, axs = plt.subplots(
-            2,
-            2,
-            figsize=(self.p.width.single, 4.2),
-            sharex=True,
-            sharey="row",
-            layout="constrained",
-        )
-        for j, (exp, title) in enumerate(exps):
-            for i, (party, colour) in enumerate([("G", c.generator), ("L", c.buyer)]):
-                ax = axs[i, j]
-                x, q = slice_pct(exp, f"earnings_{party}")
-                ax.fill_between(
-                    x, q[:, 0], q[:, 4], color=colour, alpha=bd.alpha_outer, lw=0
+        def slice_pct(exp, key, x_name):
+            """Weighted percentiles along x_name ("A_L" or "A_G") with the other risk
+            aversion at 0.5; scenarios are the rows."""
+            if (exp, key) not in files:
+                files[exp, key] = pd.read_csv(
+                    self.root / "results" / "sensitivity" / f"{exp}_risk_aversion" / f"{key}.csv",
+                    header=[0, 1],
+                    index_col=0,
                 )
-                ax.fill_between(
-                    x, q[:, 1], q[:, 3], color=colour, alpha=bd.alpha_inner, lw=0
-                )
-                ax.plot(x, q[:, 2], color=colour)
-                _, m = slice_pct(exp, f"earnings_nc_{party}")
-                for k in (0, 2, 4):  # merchant P5, median, P95
-                    ax.axhline(m[0, k], color=c.neutral, ls=":", lw=0.8)
-            axs[0, j].set_title(title)
-            axs[1, j].set_xlabel("Buyer risk aversion $A_L$")
-        axs[0, 0].set_ylabel("Generator earnings [MEUR]")
-        axs[1, 0].set_ylabel("Buyer earnings [MEUR]")
+            df = files[exp, key]
+            a = {
+                "A_G": df.columns.get_level_values(0).astype(float),
+                "A_L": df.columns.get_level_values(1).astype(float),
+            }
+            keep = np.isclose(a["A_G" if x_name == "A_L" else "A_L"], 0.5)
+            return a[x_name][keep].to_numpy(), wpct(df.loc[:, keep].to_numpy().T, w, qs)
 
         handles = [
             Patch(facecolor="0.3", alpha=bd.alpha_outer, label="P5-P95"),
@@ -559,9 +617,112 @@ class Plotter:
             Line2D([0], [0], color="0.3", label="Median"),
             Line2D([0], [0], color=c.neutral, ls=":", label="Merchant P5/P50/P95"),
         ]
+        figs = []
+        layouts = [("earnings", ["A_L"]), ("earnings_ag", ["A_G"]), ("earnings_wide", ["A_L", "A_G"])]
+        for name, xs in layouts:
+            wide = len(xs) == 2
+            fig, axs = plt.subplots(
+                2,
+                2 * len(xs),
+                figsize=(self.p.width.double, 3.4) if wide else (self.p.width.single, 4.2),
+                sharex=True,
+                sharey="row",
+                layout="constrained",
+            )
+            for k, x_name in enumerate(xs):
+                for j, (exp, title) in enumerate(exps):
+                    col = 2 * k + j
+                    for i, (party, colour) in enumerate([("G", c.generator), ("L", c.buyer)]):
+                        ax = axs[i, col]
+                        x, q = slice_pct(exp, f"earnings_{party}", x_name)
+                        ax.fill_between(
+                            x, q[:, 0], q[:, 4], color=colour, alpha=bd.alpha_outer, lw=0
+                        )
+                        ax.fill_between(
+                            x, q[:, 1], q[:, 3], color=colour, alpha=bd.alpha_inner, lw=0
+                        )
+                        ax.plot(x, q[:, 2], color=colour)
+                        _, m = slice_pct(exp, f"earnings_nc_{party}", x_name)
+                        for n in (0, 2, 4):  # merchant P5, median, P95
+                            ax.axhline(m[0, n], color=c.neutral, ls=":", lw=0.8)
+                    axs[0, col].set_title(title)
+                    axs[1, col].set_xlabel(xlabels[x_name])
+            axs[0, 0].set_ylabel("Generator earnings [MEUR]")
+            axs[1, 0].set_ylabel("Load earnings [MEUR]")
+            fig.legend(
+                handles=handles, loc="outside upper center", ncol=4 if wide else 2, frameon=False
+            )
+
+            out = self.fig_dir / f"{name}.pdf"
+            fig.savefig(out, bbox_inches="tight")
+            log.info("wrote %s", out)
+            figs.append(fig)
+        return figs
+
+    def surplus_parts(self):
+        """Each party's surplus at the base case, split into a money and a risk part.
+
+        Lesia's meeting points 5 and 7. With U = E - A (E - CVaR), the surplus is exactly
+            w_i = (E[x_i] - E[x_i^0]) + A_i [(E - CVaR)(x_i^0) - (E - CVaR)(x_i)],
+        the expected payment the party receives plus its risk aversion times the risk the
+        contract removes (x_i: earnings with the contract, x_i^0: merchant). Positive parts
+        stack upwards, negative ones downwards; the dot is w_i. A_G = A_L = 0.5, tau_L = 0.5.
+
+        Needs: risk_aversion sweep for both experiments.
+        """
+        exps = [(self.exp_bl, "Baseload"), (self.exp_pap, "PAP")]
+        if not self._available(
+            "surplus_parts", [(e, "risk_aversion") for e, _ in exps]
+        ):
+            return None
+        a_g = a_l = 0.5
+        c = self.p.colour
+        p = self._scenarios()["p"]
+
+        def earnings(exp, key):
+            """Earnings per scenario at (a_g, a_l) of the risk_aversion sweep."""
+            df = pd.read_csv(
+                self.root / "results" / "sensitivity" / f"{exp}_risk_aversion" / f"{key}.csv",
+                header=[0, 1],
+                index_col=0,
+            )
+            ag = df.columns.get_level_values(0).astype(float)
+            al = df.columns.get_level_values(1).astype(float)
+            return df.loc[:, np.isclose(ag, a_g) & np.isclose(al, a_l)].to_numpy()[:, 0]
+
+        alpha = float(self.cfg.experiment.alpha)
+        risk = lambda x: x @ p - cvar_left(x, p, alpha)  # E - CVaR
+        fig, axs = plt.subplots(
+            1, 2, figsize=(self.p.width.single, 2.4), sharey=True, layout="constrained"
+        )
+        parties = [("G", "Generator", c.generator, a_g), ("L", "Load", c.buyer, a_l)]
+        for ax, (party, name, colour, A) in zip(axs, parties):
+            for j, (exp, label) in enumerate(exps):
+                x = earnings(exp, f"earnings_{party}")
+                x0 = earnings(exp, f"earnings_nc_{party}")
+                money, removed = (x - x0) @ p, A * (risk(x0) - risk(x))
+                up = down = 0.0
+                for v, shade in ((removed, 1.0), (money, 0.45)):
+                    ax.bar(j, v, 0.6, bottom=up if v >= 0 else down, color=colour, alpha=shade, lw=0)
+                    up, down = (up + v, down) if v >= 0 else (up, down + v)
+                ax.plot(j, money + removed, "o", color="k", ms=3.5)
+                log.info(
+                    "surplus_parts %s %s: payment %+.2f, risk %+.2f, surplus %.2f MEUR",
+                    name, label, money, removed, money + removed,
+                )
+            ax.axhline(0, color=c.neutral, lw=0.5)
+            ax.set_xticks([0, 1], [label for _, label in exps])
+            ax.set_title(name)
+        axs[0].set_ylabel("Surplus [MEUR]")
+
+        handles = [
+            Patch(facecolor="0.3", alpha=0.45, label="Expected payment received"),
+            Patch(facecolor="0.3", label=r"$A_i\times$ risk removed"),
+            Line2D([], [], color="k", marker="o", ls="", ms=3.5, label="Surplus $w_i$"),
+        ]
         fig.legend(handles=handles, loc="outside upper center", ncol=2, frameon=False)
 
-        out = self.fig_dir / "earnings.pdf"
+        out = self.fig_dir / "surplus_parts.pdf"
         fig.savefig(out, bbox_inches="tight")
         log.info("wrote %s", out)
         return fig
@@ -574,45 +735,61 @@ class Plotter:
         Every line starts at the Generator's preferred size (A_L = 0) and moves towards
         that Buyer's own preferred size: up for the large Buyer, flat for the similar
         one, down for the small one. The large Buyer's PAP share stays at the cap.
+        Dotted lines: each Buyer's expected consumption (top, MW) and its consumption
+        relative to the plant's output in value (bottom; 2.11 for the large Buyer, above
+        the cap, so not drawn).
 
-        Needs: risk_aversion sweep for {baseload,pap}_{large,similar,small}_buyer.
+        Needs: risk_aversion_line sweep for {baseload,pap}_{large,similar,small}_buyer.
         """
         sizes = [  # dark = large, as in the other three-level figures
-            ("large", "Large Buyer", self.p.levels[2]),
-            ("similar", "Similar Buyer", self.p.levels[1]),
-            ("small", "Small Buyer", self.p.levels[0]),
+            ("large", "Large load", self.p.levels[2]),
+            ("similar", "Similar load", self.p.levels[1]),
+            ("small", "Small load", self.p.levels[0]),
         ]
         rows = [
             ("baseload", "M_MWh_h", "Volume $M^*$ [MW]"),
             ("pap", "gamma", r"Share $\gamma^*$ [-]"),
         ]
-        sweeps = [(f"{s}_{n}_buyer", "risk_aversion") for s, *_ in rows for n, *_ in sizes]
+        sweeps = [(f"{s}_{n}_buyer", "risk_aversion_line") for s, *_ in rows for n, *_ in sizes]
         if not self._available("buyer_size", sweeps):
             return None
+
+        # Dotted reference per Buyer (Lesia's meeting point 8), for load_scale 1: expected
+        # consumption in MW (baseload); consumption over the plant's output in value (PAP),
+        # since a share hedges the value of the output, not its energy.
+        sc = self._scenarios()
+        E = lambda x: x @ sc["p"]
+        ref = {
+            "baseload": E(sc["load"].mean(0)) / 8.76,
+            "pap": E((sc["load_capture_rate"] * sc["price"] * sc["load"]).sum(0))
+            / E((sc["capture_rate"] * sc["price"] * sc["production"]).sum(0)),
+        }
 
         fig, axs = plt.subplots(
             2, 1, figsize=(self.p.width.single, 4.2), sharex=True, layout="constrained"
         )
         for ax, (struct, q, ylabel) in zip(axs, rows):
             for size, label, colour in sizes:
-                d = pd.read_csv(
+                folder = (
                     self.root
                     / "results"
                     / "sensitivity"
-                    / f"{struct}_{size}_buyer_risk_aversion"
-                    / "results_combined.csv"
+                    / f"{struct}_{size}_buyer_risk_aversion_line"
                 )
+                d = pd.read_csv(folder / "results_combined.csv")
                 d = d[np.isclose(d.A_G, 0.5)].sort_values("A_L")
                 ax.plot(d.A_L, d[q], color=colour, label=label)
+                r = OmegaConf.load(folder / "config.yaml").experiment.load_scale * ref[struct]
+                if struct == "baseload" or r <= 1.05:  # large Buyer's PAP ratio is above the cap
+                    ax.axhline(r, color=colour, ls=":", lw=1.0)
+                log.info("buyer_size %s %s: reference %.2f", struct, size, r)
             ax.set_ylabel(ylabel)
         axs[1].set_xlim(0, 1)
-        axs[1].set_xlabel("Buyer risk aversion $A_L$")
-        fig.legend(
-            *axs[0].get_legend_handles_labels(),
-            loc="outside upper center",
-            ncol=3,
-            frameon=False,
-        )
+        axs[1].set_xlabel("Load risk aversion $A_L$")
+        handles = axs[0].get_legend_handles_labels()[0] + [
+            Line2D([], [], color=self.p.colour.neutral, ls=":", lw=1.0, label="Expected consumption")
+        ]
+        fig.legend(handles=handles, loc="outside upper center", ncol=2, frameon=False)
 
         out = self.fig_dir / "buyer_size.pdf"
         fig.savefig(out, bbox_inches="tight")
@@ -629,6 +806,7 @@ class Plotter:
         gamma / 1). Below a gap of about -0.2 no contract is signed; above zero the
         contract becomes a bet both sides expect to win, and the gain is perceived,
         not realised. Gaps limited to [-0.5, 0.5], where every gap has >= 11 pairs.
+        Colour alone tells the structures apart, so both lines are solid.
 
         Needs: asymmetric_info sweep for both experiments.
         """
@@ -658,7 +836,6 @@ class Plotter:
             d["gap"] = (d.K_L_price - d.K_G_price).round(3)
             d = d[d.gap.abs() <= 0.5 + 1e-9]
             g = d.groupby("gap")
-            style = self.p.style.baseload if "baseload" in exp else self.p.style.pap
             for ax, col in zip(axs, ("J", "size")):
                 ax.fill_between(
                     g[col].min().index,
@@ -668,7 +845,7 @@ class Plotter:
                     alpha=0.15,
                     lw=0,
                 )
-                ax.plot(g[col].mean(), color=colour, ls=style, label=name)
+                ax.plot(g[col].mean(), color=colour, label=name)
 
         for ax in axs:
             ax.axvline(0, color=self.p.colour.neutral, lw=0.5)  # common beliefs
@@ -724,7 +901,7 @@ class Plotter:
             "Case 3: cap": (-0.20, 0.60),
         }
         ROWS = {"Baseload": (0.0, "volume $M$"), "PAP": (0.6, r"share $\gamma$")}  # k, x label
-        CAP_LABEL = {"Baseload": "$M^U$", "PAP": "1"}  # label of the quantity cap on the x axis
+        CAP_LABEL = {"Baseload": r"$\overline{M}$", "PAP": "1"}  # label of the quantity cap on the x axis
 
         def surpluses(x, S, sG, sL, cG, cL, k):
             """Surpluses of the Generator and the Buyer at quantity x and strike S."""
@@ -803,10 +980,10 @@ class Plotter:
                 ax = axs[r, 0]
                 p = CASES["Case 1: interior"]
                 mG, mL = marginal_strikes(x, *p, k)
-                ax.axhline(SU, color=CYAN, lw=1, label="Highest strike $S^U$")
-                ax.axhline(SR, color=BLUE, lw=1, label="Lowest strike $S^R$")
+                ax.axhline(SU, color=CYAN, lw=1, label=r"Highest strike $\overline{S}$")
+                ax.axhline(SR, color=BLUE, lw=1, label=r"Lowest strike $\underset{\_\!\_}{S}$")
                 ax.plot(x, mG, "k", lw=1, label="Generator break-even $s_G(x)$")
-                ax.plot(x, mL, "k--", lw=1, label="Buyer break-even $s_L(x)$")
+                ax.plot(x, mL, "k--", lw=1, label="Load break-even $s_L(x)$")
                 ax.set_box_aspect(1)  # square, like the surplus panels
                 ax.fill_between(x, mG, mL, where=mL >= mG, color=GREY)  # units that create value
                 ax.set(xlim=(0, 1), ylim=(0, 1), xticks=[0, 1], xticklabels=["0", CAP_LABEL[row]],
@@ -901,6 +1078,25 @@ class Plotter:
                 s,
             )
         return not missing
+
+    def _scenarios(self):
+        """The reduced scenarios as arrays (years x scenarios) and their probabilities p.
+
+        Units of the data files: price in MEUR/GWh, energy in GWh per year. The load is the
+        large Buyer's (load_scale 1); scale it by the experiment's load_scale.
+        """
+        sg = self.cfg.scenario_gen
+        n = sg.num_scenarios_reduced
+        d = self.root / "data" / "processed" / f"scenarios_reduced_{n}"
+        tag = f"reduced_{sg.years}y_{n}s"
+        keys = ("price", "production", "capture_rate", "load", "load_capture_rate")
+        s = {
+            k: pd.read_csv(d / f"{k}_scenarios_{tag}.csv", index_col=0).to_numpy(float)
+            for k in keys
+        }
+        p = pd.read_csv(d / f"probabilities_scenarios_{tag}.csv")["Probability"]
+        s["p"] = p.to_numpy(float) / p.sum()
+        return s
 
     def _get_grid(self, sens, exp, metric):
         df = pd.read_csv(

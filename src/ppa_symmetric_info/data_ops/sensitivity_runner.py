@@ -4,6 +4,8 @@ import itertools
 import numpy as np
 import pandas as pd
 from omegaconf import OmegaConf
+from tqdm import tqdm
+from tqdm.contrib.logging import logging_redirect_tqdm
 
 from ..utils import get_logger
 from .data_loader import DataLoader
@@ -76,6 +78,11 @@ def build_sensitivity_grid(sens_cfg, config) -> list[dict]:
             {"A_G": float(ag), "A_L": float(al)}
             for ag, al in itertools.product(A_G, A_L)
         ]
+
+    if t == "risk_aversion_line":
+        # One row of the risk_aversion grid: A_G fixed, A_L swept finely.
+        A_L = np.linspace(sens_cfg.A_L.start, sens_cfg.A_L.end, sens_cfg.A_L.n)
+        return [{"A_G": float(sens_cfg.A_G), "A_L": float(al)} for al in A_L]
 
     if t == "bargaining_power":
         tau_L = np.linspace(sens_cfg.tau_L.start, sens_cfg.tau_L.end, sens_cfg.tau_L.n)
@@ -187,11 +194,13 @@ def run_sensitivity(config) -> None:
 
     results = []
     earnings_list = []
-    for i, point in enumerate(grid):
-        log.info("Sensitivity point %d/%d: %s", i + 1, n_points, point)
-        scalars, earnings = _solve_point(config, point, sens)
-        results.append({**point, **scalars})
-        earnings_list.append((point, earnings))
+    # Progress bar at the bottom of the terminal; log lines print above it
+    with logging_redirect_tqdm():
+        for i, point in enumerate(tqdm(grid, desc=out_path.name, unit="point")):
+            log.info("Sensitivity point %d/%d: %s", i + 1, n_points, point)
+            scalars, earnings = _solve_point(config, point, sens)
+            results.append({**point, **scalars})
+            earnings_list.append((point, earnings))
 
     combined = pd.DataFrame(results)
     combined.to_csv(out_path / "results_combined.csv", index=False)
@@ -212,19 +221,20 @@ def _run_load_risk_aversion(config, sens, out_path) -> None:
 
     def sweep(extra):
         rows = []
-        for i, al in enumerate(A_L):
-            point = {**base, "A_L": float(al), **extra}
-            log.info(
-                "load_risk_aversion %d/%d: A_L=%.4f %s",
-                i + 1,
-                len(A_L),
-                al,
-                extra or "",
-            )
-            scalars, _ = _solve_point(config, point, sens)
-            rows.append(
-                {**point, **scalars, "feasible": not np.isnan(scalars["S_EUR_MWh"])}
-            )
+        with logging_redirect_tqdm():
+            for i, al in enumerate(tqdm(A_L, desc=out_path.name, unit="draw")):
+                point = {**base, "A_L": float(al), **extra}
+                log.info(
+                    "load_risk_aversion %d/%d: A_L=%.4f %s",
+                    i + 1,
+                    len(A_L),
+                    al,
+                    extra or "",
+                )
+                scalars, _ = _solve_point(config, point, sens)
+                rows.append(
+                    {**point, **scalars, "feasible": not np.isnan(scalars["S_EUR_MWh"])}
+                )
         return pd.DataFrame(rows)
 
     if config.experiment.contract_type == "baseload":

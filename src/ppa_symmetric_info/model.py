@@ -27,9 +27,10 @@ class ModelNashBargaining:
     def _setup_gurobi_model(self):
         """Initialise the Gurobi model with solver parameters and the variable namespace."""
         self.m = gb.Model()
+        self.m.Params.OutputFlag = 0  # Suppress Gurobi console output (first, so the
+        # "Set parameter" lines below are not printed either)
         self.m.Params.NonConvex = 2  # Allow bilinear terms (S×M, gamma×S)
         self.m.Params.FeasibilityTol = 1e-6  # Constraint violation tolerance
-        self.m.Params.OutputFlag = 0  # Suppress Gurobi console output
         self.m.Params.TimeLimit = 420  # Hard stop at 7 minutes
         self.m.Params.ObjScale = 1e-6  # Rescale log objective for numerical stability
         self.v = SimpleNamespace()  # Namespace for all Gurobi decision variables
